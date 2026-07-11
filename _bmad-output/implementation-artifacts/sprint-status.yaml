@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-11 19:45
-last_updated: 2026-07-11 20:21
+last_updated: 2026-07-11 20:39
 project: daily-ai-news
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ story_location: /home/clx/projects/daily-ai-news/_bmad-output/implementation-art
 development_status:
   epic-1: in-progress
   1-1-local-blog-scraper-parser: done
-  1-2-deduplication-store: backlog
+  1-2-deduplication-store: done
   1-3-gemini-powered-structured-technical-summarization: backlog
   1-4-localization-translation: backlog
   1-5-content-publishing-static-file-writing: backlog

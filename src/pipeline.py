@@ -21,6 +21,58 @@ def log_error(blog_url: str, error_message: str):
     }
     print(json.dumps(log_data))
 
+def normalize_url(url: str) -> str:
+    """Normalize URL by lowering case of scheme and host, and stripping trailing slash."""
+    url = url.strip()
+    parts = url.split("://", 1)
+    if len(parts) == 2:
+        scheme, rest = parts[0].lower(), parts[1]
+        host_parts = rest.split("/", 1)
+        host = host_parts[0].lower()
+        path = "/" + host_parts[1] if len(host_parts) == 2 else ""
+        if path.endswith("/"):
+            path = path[:-1]
+        return f"{scheme}://{host}{path}"
+    else:
+        url = url.lower()
+        if url.endswith("/"):
+            url = url[:-1]
+        return url
+
+def load_deduplication_store(file_path: str) -> set[str]:
+    """Load existing URLs from a JSON file, returning a set. Fallback to empty set on error/missing."""
+    if not os.path.exists(file_path):
+        return set()
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return set(str(url) for url in data)
+        else:
+            print(f"Warning: Expected list in deduplication store at {file_path}, got {type(data).__name__}", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Failed to load deduplication store from {file_path}: {e}", file=sys.stderr)
+    return set()
+
+def save_deduplication_store(file_path: str, urls: set[str]):
+    """Save the updated URL list to a JSON file in a structured JSON format (array of strings)."""
+    temp_path = None
+    try:
+        dir_name = os.path.dirname(file_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        temp_path = file_path + ".tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(sorted(list(urls)), f, indent=2)
+        os.replace(temp_path, file_path)
+    except Exception as e:
+        print(f"Warning: Failed to save deduplication store to {file_path}: {e}", file=sys.stderr)
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
 def extract_article_info(url, result):
     """Extract title, publication date, author, and main article body from CrawlResult."""
     metadata = result.metadata or {}
@@ -179,41 +231,54 @@ async def main():
         cache_mode=CacheMode.BYPASS
     )
     
+    dedup_path = "data/fetched_posts.json"
+    dedup_store = load_deduplication_store(dedup_path)
+    dedup_set_normalized = {normalize_url(u) for u in dedup_store}
+    
     failures = []
     successes = []
     
-    print(f"Starting crawl for {len(urls)} URLs...")
-    async with AsyncWebCrawler() as crawler:
-        for url in urls:
-            url, parsed_data, error_msg = await crawl_blog(crawler, url, run_config)
-            if error_msg:
-                failures.append((url, error_msg))
-            else:
-                successes.append(parsed_data)
-                print(f"Successfully crawled: {url}")
-                print(f"  Title: {parsed_data['title']}")
-                print(f"  Author: {parsed_data['author']}")
-                print(f"  Date: {parsed_data['publication_date']}")
-                print(f"  Body length: {len(parsed_data['body'])} characters")
-                print("-" * 40)
-                
-    # Final reporting
-    print(f"\nCrawl execution summary:")
-    print(f"Total processed: {len(urls)}")
-    print(f"Successful crawls: {len(successes)}")
-    print(f"Failed crawls: {len(failures)}")
-    
-    # Save parsed articles to data/parsed_articles.json
-    if successes:
-        output_dir = "data"
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, "parsed_articles.json")
-        try:
-            with open(output_path, "w") as f:
-                json.dump(successes, f, indent=2)
-            print(f"Successfully saved {len(successes)} articles to {output_path}")
-        except Exception as e:
-            print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
+    try:
+        print(f"Starting crawl for {len(urls)} URLs...")
+        async with AsyncWebCrawler() as crawler:
+            for url in urls:
+                if normalize_url(url) in dedup_set_normalized:
+                    print(f"Skipping already crawled URL: {url}")
+                    continue
+                    
+                url, parsed_data, error_msg = await crawl_blog(crawler, url, run_config)
+                if error_msg:
+                    failures.append((url, error_msg))
+                else:
+                    successes.append(parsed_data)
+                    print(f"Successfully crawled: {url}")
+                    print(f"  Title: {parsed_data['title']}")
+                    print(f"  Author: {parsed_data['author']}")
+                    print(f"  Date: {parsed_data['publication_date']}")
+                    print(f"  Body length: {len(parsed_data['body'])} characters")
+                    print("-" * 40)
+                    
+        # Final reporting
+        print(f"\nCrawl execution summary:")
+        print(f"Total processed: {len(urls)}")
+        print(f"Successful crawls: {len(successes)}")
+        print(f"Failed crawls: {len(failures)}")
+        
+        # Save parsed articles to data/parsed_articles.json
+        if successes:
+            output_dir = "data"
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, "parsed_articles.json")
+            try:
+                with open(output_path, "w") as f:
+                    json.dump(successes, f, indent=2)
+                print(f"Successfully saved {len(successes)} articles to {output_path}")
+                for item in successes:
+                    dedup_store.add(item['url'])
+            except Exception as e:
+                print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
+    finally:
+        save_deduplication_store(dedup_path, dedup_store)
             
     if failures:
         print("\nFailed URLs and errors:")

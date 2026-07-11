@@ -122,3 +122,171 @@ async def test_crawl_blog_failure(capsys):
     log_line = json.loads(json_line)
     assert log_line["blog_url"] == "https://fail.com"
     assert log_line["error_message"] == "HTTP 500 Internal Server Error"
+
+def test_load_deduplication_store_nonexistent(tmp_path):
+    from src.pipeline import load_deduplication_store
+    path = tmp_path / "nonexistent.json"
+    assert load_deduplication_store(str(path)) == set()
+
+def test_load_deduplication_store_invalid_json(tmp_path):
+    from src.pipeline import load_deduplication_store
+    path = tmp_path / "invalid.json"
+    path.write_text("{invalid")
+    assert load_deduplication_store(str(path)) == set()
+
+def test_load_deduplication_store_not_list(tmp_path):
+    from src.pipeline import load_deduplication_store
+    path = tmp_path / "not_list.json"
+    path.write_text('{"a": 1}')
+    assert load_deduplication_store(str(path)) == set()
+
+def test_load_deduplication_store_valid(tmp_path):
+    from src.pipeline import load_deduplication_store
+    path = tmp_path / "valid.json"
+    path.write_text('["https://a.com", "https://b.com"]')
+    assert load_deduplication_store(str(path)) == {"https://a.com", "https://b.com"}
+
+def test_save_deduplication_store(tmp_path):
+    from src.pipeline import save_deduplication_store
+    path = tmp_path / "output.json"
+    save_deduplication_store(str(path), {"https://a.com", "https://b.com"})
+    assert path.exists()
+    data = json.loads(path.read_text())
+    assert sorted(data) == ["https://a.com", "https://b.com"]
+
+@pytest.mark.asyncio
+async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys):
+    import os
+    import json
+    import yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+
+    # Create directory structure in temp path
+    os.makedirs(tmp_path / "data")
+    
+    # Write blogs.yaml
+    blogs_yaml = tmp_path / "data/blogs.yaml"
+    blogs_yaml.write_text(yaml.dump({"blogs": ["https://old-url.com", "https://new-url.com"]}))
+    
+    # Write fetched_posts.json
+    fetched_posts = tmp_path / "data/fetched_posts.json"
+    fetched_posts.write_text(json.dumps(["https://old-url.com"]))
+    
+    # Change working directory to tmp_path
+    monkeypatch.chdir(tmp_path)
+    
+    # Mock AsyncWebCrawler
+    mock_crawler = AsyncMock()
+    mock_crawler.arun.return_value = MockCrawlResult(
+        success=True,
+        url="https://new-url.com",
+        markdown="New article content",
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+    )
+    
+    class MockAsyncWebCrawlerContext:
+        async def __aenter__(self):
+            return mock_crawler
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockAsyncWebCrawlerContext)
+    
+    # Run pipeline main
+    await pipeline.main()
+    
+    # Check that old-url.com was skipped and new-url.com was crawled
+    captured = capsys.readouterr()
+    assert "Skipping already crawled URL: https://old-url.com" in captured.out
+    assert "Successfully crawled: https://new-url.com" in captured.out
+    
+    # Verify that mock_crawler.arun was only called for new-url.com, not old-url.com
+    mock_crawler.arun.assert_called_once()
+    assert mock_crawler.arun.call_args[1]["url"] == "https://new-url.com"
+    
+    # Verify fetched_posts.json has both old and new URLs
+    updated_fetched = json.loads(fetched_posts.read_text())
+    assert sorted(updated_fetched) == ["https://new-url.com", "https://old-url.com"]
+    
+    # Verify parsed_articles.json has only the new article
+    parsed_articles_path = tmp_path / "data/parsed_articles.json"
+    assert parsed_articles_path.exists()
+    parsed_articles = json.loads(parsed_articles_path.read_text())
+    assert len(parsed_articles) == 1
+    assert parsed_articles[0]["url"] == "https://new-url.com"
+    assert parsed_articles[0]["title"] == "New Title"
+
+def test_normalize_url():
+    from src.pipeline import normalize_url
+    assert normalize_url("https://Google.Com/") == "https://google.com"
+    assert normalize_url("HTTP://foo.bar/baz/") == "http://foo.bar/baz"
+    assert normalize_url("https://example.com/PATH/to/resource") == "https://example.com/PATH/to/resource"
+    assert normalize_url("  https://test.com/  ") == "https://test.com"
+    assert normalize_url("bare-string/") == "bare-string"
+
+def test_load_deduplication_store_non_list_warning(tmp_path, capsys):
+    from src.pipeline import load_deduplication_store
+    path = tmp_path / "dict.json"
+    path.write_text('{"key": "value"}')
+    res = load_deduplication_store(str(path))
+    assert res == set()
+    captured = capsys.readouterr()
+    assert "Warning: Expected list" in captured.err
+
+@pytest.mark.asyncio
+async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monkeypatch, capsys):
+    import os
+    import json
+    import yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+
+    # Create directory structure in temp path
+    os.makedirs(tmp_path / "data")
+    
+    # Write blogs.yaml
+    blogs_yaml = tmp_path / "data/blogs.yaml"
+    blogs_yaml.write_text(yaml.dump({"blogs": ["https://new-url.com"]}))
+    
+    # Write fetched_posts.json
+    fetched_posts = tmp_path / "data/fetched_posts.json"
+    fetched_posts.write_text(json.dumps([]))
+    
+    # Change working directory to tmp_path
+    monkeypatch.chdir(tmp_path)
+    
+    # Mock AsyncWebCrawler
+    mock_crawler = AsyncMock()
+    mock_crawler.arun.return_value = MockCrawlResult(
+        success=True,
+        url="https://new-url.com",
+        markdown="New article content",
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+    )
+    
+    class MockAsyncWebCrawlerContext:
+        async def __aenter__(self):
+            return mock_crawler
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockAsyncWebCrawlerContext)
+    
+    # Force a failure during saving of parsed_articles.json by mocking open
+    import builtins
+    original_open = builtins.open
+    def mock_open(file, mode='r', *args, **kwargs):
+        if "parsed_articles.json" in str(file) and 'w' in mode:
+            raise PermissionError("Simulated write error")
+        return original_open(file, mode, *args, **kwargs)
+    monkeypatch.setattr(builtins, "open", mock_open)
+    
+    # Run pipeline main
+    await pipeline.main()
+    
+    # Verify that crawled URL was NOT added to fetched_posts.json because of the save failure
+    updated_fetched = json.loads(fetched_posts.read_text())
+    assert updated_fetched == []
+
+
