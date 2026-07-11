@@ -1,0 +1,66 @@
+# generated: 2026-07-11 19:45
+# last_updated: 2026-07-11 19:46
+# project: daily-ai-news
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: /home/clx/projects/daily-ai-news/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-07-11 19:45
+last_updated: 2026-07-11 19:46
+project: daily-ai-news
+project_key: NOKEY
+tracking_system: file-system
+story_location: /home/clx/projects/daily-ai-news/_bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: in-progress
+  1-1-local-blog-scraper-parser: ready-for-dev
+  1-2-deduplication-store: backlog
+  1-3-gemini-powered-structured-technical-summarization: backlog
+  1-4-localization-translation: backlog
+  1-5-content-publishing-static-file-writing: backlog
+  1-6-daily-pipeline-schedule-deployment-workflow-automation: backlog
+  epic-1-retrospective: optional
+  epic-2: backlog
+  2-1-hugo-multilingual-setup-configuration-research: backlog
+  2-2-zero-dependency-layout-asset-architecture: backlog
+  2-3-bento-grid-archive-layout-homepage: backlog
+  2-4-split-pane-detail-layout-daily-summary: backlog
+  2-5-interactive-javascript-switcher-integration: backlog
+  2-6-sidebar-search-filters-language-switcher: backlog
+  epic-2-retrospective: optional
