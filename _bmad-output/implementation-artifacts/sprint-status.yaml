@@ -51,7 +51,7 @@ development_status:
   epic-1: in-progress
   1-1-local-blog-scraper-parser: done
   1-2-deduplication-store: done
-  1-3-gemini-powered-structured-technical-summarization: backlog
+  1-3-gemini-powered-structured-technical-summarization: done
   1-4-localization-translation: backlog
   1-5-content-publishing-static-file-writing: backlog
   1-6-daily-pipeline-schedule-deployment-workflow-automation: backlog

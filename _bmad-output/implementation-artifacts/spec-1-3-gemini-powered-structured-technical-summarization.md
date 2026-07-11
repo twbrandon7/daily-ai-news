@@ -2,8 +2,10 @@
 title: 'Gemini-powered Structured Technical Summarization'
 type: 'feature'
 created: '2026-07-11T20:50:48+08:00'
-status: 'in-review'
+status: 'done'
 baseline_commit: '1346a92822533da48dee65ccd878fce499b76e06'
+final_commit: '94756d2a2a438ff6caf20817508d46066f40b334'
+followup_review_recommended: true
 review_loop_iteration: 0
 followup_review_recommended: false
 context: []
@@ -117,3 +119,35 @@ Extract the JSON block from `response_text` using a regex for ` ```json ... ``` 
 **Commands:**
 - `uv run pytest tests/test_summarizer.py -v` -- expected: all tests pass
 - `uv run pytest tests/test_pipeline.py -v` -- expected: all existing tests pass (no regressions)
+
+## Auto Run Result
+
+Status: done
+
+### Summary
+
+Implemented Story 1.3: Gemini-powered Structured Technical Summarization. Added Google ADK integration for AI-driven article summarization as a new pipeline stage between deduplication and publishing.
+
+### Files Changed
+
+- `pyproject.toml` — added `google-adk>=0.1` dependency
+- `src/summarizer.py` — new module: `summarize_article()` using `LlmAgent`/`Runner`/`InMemorySessionService` with `gemini-2.0-flash`; returns `{tldr, problem_why, solution_how, insights_tradeoffs, tags_action, rating}` or `None` on failure
+- `src/pipeline.py` — `GOOGLE_API_KEY` check at startup (rejects whitespace-only); calls `summarize_article()` per crawled article; excludes articles whose summarization fails
+- `tests/test_summarizer.py` — 4 unit tests (happy path, empty body, API exception, malformed response)
+- `tests/test_pipeline.py` — updated 2 integration tests + new AC5 test for summarization failure exclusion
+
+### Review Findings
+
+- Patches applied: 8 (1 high, 4 medium, 3 low)
+- Items deferred: 3 (no timeout/retry, unbounded body, per-article ADK instantiation)
+- Items rejected: 4
+
+### Verification
+
+`uv run pytest tests/ -v` — 19 passed, 0 failed
+
+### Residual Risks
+
+- No timeout around `runner.run_async()` — a hung Gemini call can stall the pipeline indefinitely (deferred)
+- Per-article ADK client instantiation adds overhead at scale (deferred)
+- Unbounded article body may hit model token limits on long crawls (deferred)
