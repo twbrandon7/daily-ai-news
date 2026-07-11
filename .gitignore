@@ -1,0 +1,11 @@
+# Agent internal files
+.agent/
+
+# Python caching & environments
+__pycache__/
+*.pyc
+.venv/
+.uv/
+
+# OS specific files
+.DS_Store
