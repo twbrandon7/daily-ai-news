@@ -162,6 +162,9 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     from src import pipeline
     from unittest.mock import AsyncMock
 
+    # Set required env var
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+
     # Create directory structure in temp path
     os.makedirs(tmp_path / "data")
     
@@ -192,6 +195,17 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
             pass
             
     monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockAsyncWebCrawlerContext)
+
+    # Mock summarize_article to return a valid summary without making real API calls
+    mock_summary = {
+        "tldr": "Test summary",
+        "problem_why": "Test problem",
+        "solution_how": "Test solution",
+        "insights_tradeoffs": {"pros": ["pro1"], "cons": ["con1"]},
+        "tags_action": ["tag1"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
     
     # Run pipeline main
     await pipeline.main()
@@ -216,6 +230,7 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     assert len(parsed_articles) == 1
     assert parsed_articles[0]["url"] == "https://new-url.com"
     assert parsed_articles[0]["title"] == "New Title"
+    assert parsed_articles[0]["summary"] == mock_summary
 
 def test_normalize_url():
     from src.pipeline import normalize_url
@@ -241,6 +256,9 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
     import yaml
     from src import pipeline
     from unittest.mock import AsyncMock
+
+    # Set required env var
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
 
     # Create directory structure in temp path
     os.makedirs(tmp_path / "data")
@@ -272,6 +290,17 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
             pass
             
     monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockAsyncWebCrawlerContext)
+
+    # Mock summarize_article to return a valid summary without making real API calls
+    mock_summary = {
+        "tldr": "Test summary",
+        "problem_why": "Test problem",
+        "solution_how": "Test solution",
+        "insights_tradeoffs": {"pros": ["pro1"], "cons": ["con1"]},
+        "tags_action": ["tag1"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
     
     # Force a failure during saving of parsed_articles.json by mocking open
     import builtins
@@ -290,3 +319,68 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
     assert updated_fetched == []
 
 
+
+
+@pytest.mark.asyncio
+async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeypatch):
+    """
+    AC5: Given 3 articles where 1 summarization fails, when pipeline runs,
+    then parsed_articles.json contains exactly 2 articles (each with summary)
+    and the failing article is recorded in failures.
+    """
+    import os, json, yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.chdir(tmp_path)
+    os.makedirs(tmp_path / "data")
+
+    urls = ["https://ok1.com", "https://fail.com", "https://ok2.com"]
+    (tmp_path / "data/blogs.yaml").write_text(yaml.dump({"blogs": urls}))
+    (tmp_path / "data/fetched_posts.json").write_text("[]")
+
+    def make_crawl_result(url):
+        return MockCrawlResult(
+            success=True,
+            url=url,
+            markdown=f"body of {url}",
+            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+        )
+
+    call_count = 0
+    original_arun = None
+
+    class MockCrawler:
+        async def arun(self, url, config):
+            return make_crawl_result(url)
+
+    class MockCrawlerCtx:
+        async def __aenter__(self): return MockCrawler()
+        async def __aexit__(self, *_): pass
+
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockCrawlerCtx)
+
+    mock_summary = {
+        "tldr": "ok",
+        "problem_why": "p",
+        "solution_how": "s",
+        "insights_tradeoffs": {"pros": ["a"], "cons": ["b"]},
+        "tags_action": ["t"],
+        "rating": 3,
+    }
+
+    async def fake_summarize(url, body, title):
+        if "fail" in url:
+            return None
+        return mock_summary
+
+    monkeypatch.setattr(pipeline, "summarize_article", fake_summarize)
+
+    await pipeline.main()
+
+    parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
+    assert len(parsed) == 2
+    for article in parsed:
+        assert "summary" in article
+        assert "fail" not in article["url"]

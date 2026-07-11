@@ -11,6 +11,8 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter
 
+from src.summarizer import summarize_article
+
 def log_error(blog_url: str, error_message: str):
     """Log error in the required JSON format."""
     log_data = {
@@ -201,6 +203,15 @@ async def crawl_blog(crawler, url, run_config):
         return url, None, error_msg
 
 async def main():
+    # Check for required environment variable before any crawling
+    if not (os.environ.get("GOOGLE_API_KEY") or "").strip():
+        print(
+            "Error: GOOGLE_API_KEY environment variable is not set. "
+            "Set it before running the pipeline.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Load configuration
     config_path = "data/blogs.yaml"
     blog_config = {}
@@ -250,13 +261,18 @@ async def main():
                 if error_msg:
                     failures.append((url, error_msg))
                 else:
-                    successes.append(parsed_data)
-                    print(f"Successfully crawled: {url}")
-                    print(f"  Title: {parsed_data['title']}")
-                    print(f"  Author: {parsed_data['author']}")
-                    print(f"  Date: {parsed_data['publication_date']}")
-                    print(f"  Body length: {len(parsed_data['body'])} characters")
-                    print("-" * 40)
+                    summary = await summarize_article(url, parsed_data['body'], parsed_data['title'])
+                    if summary is None:
+                        failures.append((url, "summarization failed"))
+                    else:
+                        parsed_data['summary'] = summary
+                        successes.append(parsed_data)
+                        print(f"Successfully crawled: {url}")
+                        print(f"  Title: {parsed_data['title']}")
+                        print(f"  Author: {parsed_data['author']}")
+                        print(f"  Date: {parsed_data['publication_date']}")
+                        print(f"  Body length: {len(parsed_data['body'])} characters")
+                        print("-" * 40)
                     
         # Final reporting
         print(f"\nCrawl execution summary:")
