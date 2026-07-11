@@ -13,3 +13,10 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-gemini-powered-structured-technical-summarization.md`
   summary: LlmAgent + Runner + InMemorySessionService are re-created per article — unnecessary overhead for multi-article runs.
   evidence: All three objects are instantiated inside summarize_article() on every call; should be created once and reused across articles in the pipeline run.
+
+## Deferred from: code review of 1-4-localization-translation.md (2026-07-11)
+
+- Inefficient per-call agent instantiation: LlmAgent + Runner + InMemorySessionService are re-created per article — unnecessary overhead for multi-article runs.
+- Redundant logging implementation: The logging function _log_translate_error duplicates the structured logging formatting logic from log_error in pipeline.py.
+- Lack of JSON mode or structured outputs configuration: The Gemini model is called with a prompt instructing it to return JSON, but it does not leverage response_mime_type or schema constraints.
+- Insufficient test assertion coverage: Integration tests mock the translation output but return the unmodified English summary or basic strings without validating that the content is translated to Traditional Chinese or that the English preservation guidelines are honored.
