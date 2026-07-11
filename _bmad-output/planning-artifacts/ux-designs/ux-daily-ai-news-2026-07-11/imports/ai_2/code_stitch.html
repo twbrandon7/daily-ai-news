@@ -1,0 +1,388 @@
+<!DOCTYPE html><html lang="zh-TW" class="light" style=""><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#f2f4f6",
+                    "surface-container-highest": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "surface-dim": "#d8dadc",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "background": "#f7f9fb",
+                    "surface-container-high": "#e6e8ea",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "tertiary": "#943700",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-primary-container": "#eeefff",
+                    "on-error-container": "#93000a",
+                    "outline": "#737686",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-tertiary-container": "#ffede6",
+                    "on-surface-variant": "#434655",
+                    "surface-container-lowest": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "inverse-primary": "#b4c5ff",
+                    "secondary-fixed": "#e1e0ff",
+                    "error": "#ba1a1a",
+                    "secondary-fixed-dim": "#c0c1ff",
+                    "on-surface": "#191c1e",
+                    "secondary-container": "#6063ee",
+                    "inverse-surface": "#2d3133",
+                    "outline-variant": "#c3c6d7",
+                    "tertiary-container": "#bc4800",
+                    "surface-tint": "#0053db",
+                    "surface": "#f7f9fb",
+                    "on-background": "#191c1e",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#00174b",
+                    "tertiary-fixed": "#ffdbcd",
+                    "on-secondary-container": "#fffbff",
+                    "primary-fixed": "#dbe1ff",
+                    "on-tertiary-fixed": "#360f00",
+                    "secondary": "#4648d4",
+                    "on-secondary-fixed-variant": "#2f2ebe",
+                    "surface-container": "#eceef0",
+                    "primary-container": "#2563eb",
+                    "primary": "#004ac6",
+                    "on-secondary-fixed": "#07006c",
+                    "surface-variant": "#e0e3e5",
+                    "on-error": "#ffffff",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "2xl": "48px",
+                    "xs": "4px",
+                    "container-max": "1440px",
+                    "sm": "8px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "base": "4px",
+                    "lg": "24px",
+                    "nav-width": "280px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-xl": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "headline-md": ["18px", {"lineHeight": "26px", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-xl": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    }catch(_e){}</script><meta charset="utf-8"></head><body class="text-on-background">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-lg max-w-container-max mx-auto bg-surface-container-lowest dark:bg-surface-dim border-b border-outline-variant dark:border-outline h-[64px]">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">AI 部落格摘要</span>
+<nav class="hidden md:flex gap-lg">
+
+
+
+
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant px-sm py-xs font-label-md text-label-md hover:bg-surface-container transition-colors">EN/TW</button>
+
+</div>
+</header>
+<main class="pt-[64px] min-h-screen">
+<!-- Hero Section -->
+<section class="hero-gradient py-2xl px-lg border-b border-outline-variant">
+<div class="max-w-container-max mx-auto text-center space-y-md">
+<div class="inline-flex items-center px-md py-xs rounded-full bg-primary/10 text-primary font-label-md text-label-md mb-md">
+<span class="material-symbols-outlined text-[16px] mr-xs">auto_awesome</span>
+                    AI-Native Intelligence Hub
+                </div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">Daily AI Insights</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
+                    您的自動化情報中心，專為科技與 AI 領域的最新進展而生。
+                    每日自動彙整全球核心技術動態，提供精準的深度解析。
+                </p>
+</div>
+</section>
+<!-- Features Quick Look -->
+<section class="py-xl px-lg bg-surface">
+<div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-3 gap-lg">
+<div class="flex items-start gap-md p-lg">
+<div class="p-sm bg-secondary-container text-on-secondary-container rounded-xl">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md">Instant TL;DR</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">毫秒級產出關鍵摘要，迅速掌握文章精髓。</p>
+</div>
+</div>
+<div class="flex items-start gap-md p-lg">
+<div class="p-sm bg-secondary-container text-on-secondary-container rounded-xl">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md">Technical Depth</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">深度技術分析，涵蓋代碼實作與架構邏輯。</p>
+</div>
+</div>
+<div class="flex items-start gap-md p-lg">
+<div class="p-sm bg-secondary-container text-on-secondary-container rounded-xl">
+<span class="material-symbols-outlined" data-icon="translate">translate</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md">Multi-language</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">多語言支援，跨越語言障礙獲取第一手資訊。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Daily Archive Grid -->
+<section class="py-2xl px-lg">
+<div class="max-w-container-max mx-auto">
+<div class="flex justify-between items-end mb-xl">
+<div class="space-y-xs">
+<span class="font-label-md text-label-md text-primary uppercase tracking-widest">Archive</span>
+<h2 class="font-headline-lg text-headline-lg">每日存檔</h2>
+</div>
+
+</div>
+<div class="bento-grid"><!-- Card 1 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月27日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">12 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">今日 AI 領域聚焦於 OpenAI o1 系列模型的推理進展。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    深入探討 o1 系列模型在邏輯推理與長文本生成的效能提升，以及其對未來代理應用的影響。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 2 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月26日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">8 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">大型語言模型在自動化代碼生成的效率顯著提升。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    GitHub Copilot 與 Cursor 等工具的最新技術更新，大幅降低了工程師在重構代碼時的成本。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 3 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月25日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">15 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">探討邊緣運算與 Llama 輕量化模型的結合應用。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    隨著手機與 PC 硬體性能提升，本地端運行 AI 模型的需求激增，相關通訊協定正在標準化。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 4 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月24日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">10 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">多模態 AI 模型的最新突破：視覺與語言的深度融合。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    分析最新發布的多模態模型如何處理複雜的視覺推理任務，並在基準測試中取得領先。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 5 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月23日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">7 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">開源 AI 社群的崛起：Llama 3.1 的生態系影響。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    探討開源模型如何改變企業級 AI 部署的格局，以及開發者社群的最新貢獻。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 6 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月22日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">14 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">AI 代理 (Agents) 的未來：從單一任務到複雜工作流。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    研究自主代理在自動化辦公與軟體開發中的實際應用案例與技術挑戰。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 7 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月21日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">9 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">向量資料庫在 RAG 架構中的關鍵角色。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    深入分析不同向量資料庫的效能差異，以及如何優化檢索增強生成系統的準確度。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 8 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月20日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">11 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">AI 倫理與監管：全球政策動態與技術合規。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    追蹤歐盟 AI 法案與美國行政命令對技術開發者的影響，以及如何建立負責任的 AI。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<!-- Card 9 -->
+<div class="tonal-card p-lg rounded-xl flex flex-col justify-between h-full group">
+<div class="space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">2024年10月19日</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full">13 篇文章</span>
+</div>
+<div class="space-y-sm">
+<h3 class="font-headline-md text-headline-md group-hover:text-primary transition-colors">生成式 AI 在創意產業的應用：從圖像到影片。</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    探討 Sora 與 Midjourney 等工具如何重塑影視製作與平面設計的工作流程。
+                                </p>
+</div>
+</div>
+<button class="mt-xl w-full py-md border border-primary text-primary font-label-md text-label-md rounded-lg group-hover:bg-primary group-hover:text-white transition-all active:scale-95 flex items-center justify-center gap-sm">
+                            View Summary
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div></div><div class="mt-xl flex items-center justify-center gap-sm">
+  <button class="flex items-center justify-center w-10 h-10 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors">
+    <span class="material-symbols-outlined">chevron_left</span>
+  </button>
+  <div class="flex items-center gap-xs">
+    <button class="w-10 h-10 rounded-lg bg-primary text-white font-label-md text-label-md">1</button>
+    <button class="w-10 h-10 rounded-lg border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors">2</button>
+    <button class="w-10 h-10 rounded-lg border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors">3</button>
+    <span class="px-xs text-on-surface-variant">...</span>
+    <button class="w-10 h-10 rounded-lg border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors">4</button>
+  </div>
+  <button class="flex items-center justify-center w-10 h-10 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors">
+    <span class="material-symbols-outlined">chevron_right</span>
+  </button>
+</div>
+</div>
+</section>
+<!-- Newsletter CTA -->
+
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-low dark:bg-surface-dim border-t border-outline-variant dark:border-outline">
+<div class="w-full py-lg px-lg flex flex-col md:flex-row justify-between items-center max-w-container-max mx-auto gap-md">
+<div class="flex flex-col md:flex-row items-center gap-xl">
+<span class="font-label-md text-label-md font-bold">SummarizeAI</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-80">© 2024 SummarizeAI Corp. All rights reserved.</span>
+</div>
+<nav class="flex gap-lg">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors opacity-80 hover:opacity-100" href="#">Help Center</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors opacity-80 hover:opacity-100" href="#">API Status</a>
+</nav>
+</div>
+</footer>
+<script>
+        // Micro-interaction for hover states or active states
+        document.querySelectorAll('.tonal-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+                card.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.05)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = 'none';
+            });
+        });
+    </script>
+
+</body></html>
