@@ -3,7 +3,7 @@ baseline_commit: ce668c051134ebdf9847b10d41f59a8ebd16610c
 ---
 # Story 1.1: Local Blog Scraper & Parser
 
-Status: in-progress
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,16 +26,16 @@ so that the pipeline can retrieve news content without page boilerplate clutter.
   - [x] Initialize Python environment configurations using standard `uv` patterns if needed.
   - [x] Create `data/` and `src/` directories if not present.
   - [x] Create `data/blogs.yaml` with initial test URLs (e.g., standard AI research blog URLs).
-- [ ] Task 2: Implement Crawl Filter in `src/pipeline.py` (AC: #2, #3, #4)
-  - [ ] Write asynchronous parser in `src/pipeline.py` using `AsyncWebCrawler` from `crawl4AI`.
-  - [ ] Setup `CrawlerRunConfig` with automatic content filtering (e.g., `fit_markdown`) to exclude sidebars, headers, and footers.
-  - [ ] Extract title, publication date, author, and main article body.
-- [ ] Task 3: Error Handling & Logging (AC: #3)
-  - [ ] Log output in structured JSON format with keys: `timestamp`, `stage`, `blog_url`, and `error_message`.
-  - [ ] Ensure that single blog failures (network timeout, page load fail) do not block the pipeline from processing other blogs.
-- [ ] Task 4: Local Execution & Verification (AC: #2)
-  - [ ] Run crawler using `uv run python3 src/pipeline.py`.
-  - [ ] Verify extracted content is structured and cleanly excludes boilerplate.
+- [x] Task 2: Implement Crawl Filter in `src/pipeline.py` (AC: #2, #3, #4)
+  - [x] Write asynchronous parser in `src/pipeline.py` using `AsyncWebCrawler` from `crawl4AI`.
+  - [x] Setup `CrawlerRunConfig` with automatic content filtering (e.g., `fit_markdown`) to exclude sidebars, headers, and footers.
+  - [x] Extract title, publication date, author, and main article body.
+- [x] Task 3: Error Handling & Logging (AC: #3)
+  - [x] Log output in structured JSON format with keys: `timestamp`, `stage`, `blog_url`, and `error_message`.
+  - [x] Ensure that single blog failures (network timeout, page load fail) do not block the pipeline from processing other blogs.
+- [x] Task 4: Local Execution & Verification (AC: #2)
+  - [x] Run crawler using `uv run python3 src/pipeline.py`.
+  - [x] Verify extracted content is structured and cleanly excludes boilerplate.
 
 ## Dev Notes
 
@@ -73,6 +73,11 @@ Gemini 3.5 Flash (Medium)
 - Initialize python 3.11 project using uv.
 - Create data/ and src/ folders.
 - Create data/blogs.yaml with sample URLs.
+- Implement asynchronous web crawler using crawl4ai in src/pipeline.py.
+- Filter boilerplate/layout sections via PruningContentFilter.
+- Parse title, publication date, author and body using metadata fallback & beautifulsoup4.
+- Implement structured JSON error logging for individual url crawling.
+- Create unit tests verifying crawling and parsing functions in tests/test_pipeline.py.
 
 ### File List
 
@@ -81,3 +86,22 @@ Gemini 3.5 Flash (Medium)
 - `README.md`
 - `data/blogs.yaml`
 - `src/__init__.py`
+- `src/pipeline.py`
+- `tests/test_pipeline.py`
+
+### Review Findings
+
+- [x] [Review][Patch] Missing parsed data persistence — Story 1.1 extracts data but does not write it to a file or stream. Resolved: Saved to data/parsed_articles.json.
+- [x] [Review][Patch] Missing beautifulsoup4 dependency in pyproject.toml [pyproject.toml:13]
+- [x] [Review][Patch] pyproject.toml lacks build-system table [pyproject.toml]
+- [x] [Review][Patch] Fragile date extraction and fallback [src/pipeline.py:96]
+- [x] [Review][Patch] Fragile result.html parsing without safety checks [src/pipeline.py:30]
+- [x] [Review][Patch] Duplicate BeautifulSoup parsing of result.html [src/pipeline.py:31]
+- [x] [Review][Patch] Timezone-naive datetime in log_error [src/pipeline.py:17]
+- [x] [Review][Patch] Unguarded types for metadata fields (title/author) [src/pipeline.py:107]
+- [x] [Review][Patch] Unguarded access to result.markdown [src/pipeline.py:103]
+- [x] [Review][Patch] Fragile configuration parsing and error handling [src/pipeline.py:136]
+- [x] [Review][Patch] Inaccurate mocking of result.markdown in tests [tests/test_pipeline.py:363]
+- [x] [Review][Patch] Fragile log error test assertion [tests/test_pipeline.py:414]
+- [x] [Review][Defer] Sequential crawl execution [src/pipeline.py:161] — deferred, pre-existing
+
