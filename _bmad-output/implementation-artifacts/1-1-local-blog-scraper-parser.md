@@ -1,6 +1,9 @@
+---
+baseline_commit: ce668c051134ebdf9847b10d41f59a8ebd16610c
+---
 # Story 1.1: Local Blog Scraper & Parser
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -19,10 +22,10 @@ so that the pipeline can retrieve news content without page boilerplate clutter.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Environment & Project Directory Initialization (AC: #1)
-  - [ ] Initialize Python environment configurations using standard `uv` patterns if needed.
-  - [ ] Create `data/` and `src/` directories if not present.
-  - [ ] Create `data/blogs.yaml` with initial test URLs (e.g., standard AI research blog URLs).
+- [x] Task 1: Environment & Project Directory Initialization (AC: #1)
+  - [x] Initialize Python environment configurations using standard `uv` patterns if needed.
+  - [x] Create `data/` and `src/` directories if not present.
+  - [x] Create `data/blogs.yaml` with initial test URLs (e.g., standard AI research blog URLs).
 - [ ] Task 2: Implement Crawl Filter in `src/pipeline.py` (AC: #2, #3, #4)
   - [ ] Write asynchronous parser in `src/pipeline.py` using `AsyncWebCrawler` from `crawl4AI`.
   - [ ] Setup `CrawlerRunConfig` with automatic content filtering (e.g., `fit_markdown`) to exclude sidebars, headers, and footers.
@@ -67,4 +70,14 @@ Gemini 3.5 Flash (Medium)
 
 ### Completion Notes List
 
+- Initialize python 3.11 project using uv.
+- Create data/ and src/ folders.
+- Create data/blogs.yaml with sample URLs.
+
 ### File List
+
+- `.python-version`
+- `pyproject.toml`
+- `README.md`
+- `data/blogs.yaml`
+- `src/__init__.py`
