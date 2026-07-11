@@ -12,6 +12,7 @@ from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter
 
 from src.summarizer import summarize_article
+from src.translator import translate_summary
 
 def log_error(blog_url: str, error_message: str):
     """Log error in the required JSON format."""
@@ -266,13 +267,18 @@ async def main():
                         failures.append((url, "summarization failed"))
                     else:
                         parsed_data['summary'] = summary
-                        successes.append(parsed_data)
-                        print(f"Successfully crawled: {url}")
-                        print(f"  Title: {parsed_data['title']}")
-                        print(f"  Author: {parsed_data['author']}")
-                        print(f"  Date: {parsed_data['publication_date']}")
-                        print(f"  Body length: {len(parsed_data['body'])} characters")
-                        print("-" * 40)
+                        translated = await translate_summary(url, summary)
+                        if translated is None:
+                            failures.append((url, "translation failed"))
+                        else:
+                            parsed_data['summary_zh_tw'] = translated
+                            successes.append(parsed_data)
+                            print(f"Successfully crawled: {url}")
+                            print(f"  Title: {parsed_data['title']}")
+                            print(f"  Author: {parsed_data['author']}")
+                            print(f"  Date: {parsed_data['publication_date']}")
+                            print(f"  Body length: {len(parsed_data['body'])} characters")
+                            print("-" * 40)
                     
         # Final reporting
         print(f"\nCrawl execution summary:")

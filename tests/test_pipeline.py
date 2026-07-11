@@ -206,6 +206,15 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
         "rating": 4,
     }
     monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
+    mock_translation = {
+        "tldr": "測試摘要",
+        "problem_why": "測試問題",
+        "solution_how": "測試方案",
+        "insights_tradeoffs": {"pros": ["優點"], "cons": ["缺點"]},
+        "tags_action": ["標籤"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
     
     # Run pipeline main
     await pipeline.main()
@@ -231,6 +240,7 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     assert parsed_articles[0]["url"] == "https://new-url.com"
     assert parsed_articles[0]["title"] == "New Title"
     assert parsed_articles[0]["summary"] == mock_summary
+    assert parsed_articles[0]["summary_zh_tw"] == mock_translation
 
 def test_normalize_url():
     from src.pipeline import normalize_url
@@ -301,6 +311,15 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
         "rating": 4,
     }
     monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
+    mock_translation = {
+        "tldr": "測試摘要",
+        "problem_why": "測試問題",
+        "solution_how": "測試方案",
+        "insights_tradeoffs": {"pros": ["優點"], "cons": ["缺點"]},
+        "tags_action": ["標籤"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
     
     # Force a failure during saving of parsed_articles.json by mocking open
     import builtins
@@ -377,10 +396,81 @@ async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeyp
 
     monkeypatch.setattr(pipeline, "summarize_article", fake_summarize)
 
+    async def fake_translate(url, summary):
+        return summary
+    monkeypatch.setattr(pipeline, "translate_summary", fake_translate)
+
     await pipeline.main()
 
     parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
     assert len(parsed) == 2
     for article in parsed:
         assert "summary" in article
+        assert "summary_zh_tw" in article
+        assert "fail" not in article["url"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypatch):
+    """
+    Given 3 articles where 1 translation fails, when pipeline runs,
+    then parsed_articles.json contains exactly 2 articles (each with summary and summary_zh_tw)
+    and the failing article is recorded in failures.
+    """
+    import os, json, yaml
+    from src import pipeline
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.chdir(tmp_path)
+    os.makedirs(tmp_path / "data")
+
+    urls = ["https://ok1.com", "https://fail.com", "https://ok2.com"]
+    (tmp_path / "data/blogs.yaml").write_text(yaml.dump({"blogs": urls}))
+    (tmp_path / "data/fetched_posts.json").write_text("[]")
+
+    def make_crawl_result(url):
+        return MockCrawlResult(
+            success=True,
+            url=url,
+            markdown=f"body of {url}",
+            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+        )
+
+    class MockCrawler:
+        async def arun(self, url, config):
+            return make_crawl_result(url)
+
+    class MockCrawlerCtx:
+        async def __aenter__(self): return MockCrawler()
+        async def __aexit__(self, *_): pass
+
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockCrawlerCtx)
+
+    mock_summary = {
+        "tldr": "ok",
+        "problem_why": "p",
+        "solution_how": "s",
+        "insights_tradeoffs": {"pros": ["a"], "cons": ["b"]},
+        "tags_action": ["t"],
+        "rating": 3,
+    }
+
+    async def fake_summarize(url, body, title):
+        return mock_summary
+
+    async def fake_translate(url, summary):
+        if "fail" in url:
+            return None
+        return summary
+
+    monkeypatch.setattr(pipeline, "summarize_article", fake_summarize)
+    monkeypatch.setattr(pipeline, "translate_summary", fake_translate)
+
+    await pipeline.main()
+
+    parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
+    assert len(parsed) == 2
+    for article in parsed:
+        assert "summary" in article
+        assert "summary_zh_tw" in article
         assert "fail" not in article["url"]
