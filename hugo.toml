@@ -1,0 +1,21 @@
+baseURL = "https://YOUR_USERNAME.github.io/daily-ai-news/"
+defaultContentLanguage = "en"
+defaultContentLanguageInSubdir = true
+hasCJKLanguage = true
+
+[languages]
+  [languages.en]
+    languageName = "English"
+    weight = 1
+    title = "Daily AI News"
+    contentDir = "content/en"
+    languageCode = "en-US"
+
+  [languages.zh-tw]
+    languageName = "繁體中文"
+    weight = 2
+    title = "每日 AI 新聞"
+    contentDir = "content/zh-tw"
+    languageCode = "zh-TW"
+    hasCJKLanguage = true
+
