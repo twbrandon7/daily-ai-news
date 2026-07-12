@@ -24,3 +24,8 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-content-publishing-static-file-writing.md`
   summary: Session service, Runner, and Agent instantiated per highlight/translation call.
   evidence: LlmAgent, InMemorySessionService, and Runner are created inside generate_daily_highlight() and translate_highlight() on every invocation.
+
+## Deferred from: code review of 2-3-bento-grid-archive-layout-homepage (2026-07-12)
+
+- Document `<title>` vs H1 heading mismatch — base template renders `<title>{{ .Title }} | {{ .Site.Title }}</title>` while the homepage H1 is hardcoded "Daily AI Insights"; SEO/a11y mismatch. Pre-existing, outside story 2-3 scope.
+- Article count badge "1 articles" plural grammar — badge always renders `{{ $count }} articles` without a plural check; "1 articles" is grammatically incorrect. No plural i18n infrastructure in scope for story 2-3.

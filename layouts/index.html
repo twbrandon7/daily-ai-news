@@ -1,8 +1,184 @@
 {{ define "main" }}
-  <main>
-    <h1>{{ .Site.Title }}</h1>
-    {{ range (where .Site.RegularPages "Type" "posts") }}
-      <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+<main>
+
+  {{/* ── Hero Section ─────────────────────────────────────────────── */}}
+  <section class="hero-section">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        {{/* Inline star SVG — no external CDN (AD-5) */}}
+        <svg class="hero-badge-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+        </svg>
+        AI-Native Intelligence Hub
+      </div>
+      <h1 class="hero-title text-headline-xl">Daily AI Insights</h1>
+      <p class="hero-subtitle text-body-lg">
+        {{- if eq .Site.Language.Lang "zh-tw" -}}
+        您的自動化情報中心，專為科技與 AI 領域的最新進展而生。每日自動彙整全球核心技術動態，提供精準的深度解析。
+        {{- else -}}
+        Your automated intelligence hub for the latest developments in AI and technology.
+        Daily automated summaries of global technical trends with precise deep analysis.
+        {{- end -}}
+      </p>
+    </div>
+  </section>
+
+  {{/* ── Features Quick Look ──────────────────────────────────────── */}}
+  <section class="features-section">
+    <div class="features-grid">
+
+      <div class="feature-item">
+        <div class="feature-icon-wrapper" aria-hidden="true">
+          {{/* Speed / lightning icon */}}
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2v13l3-3 3 3V2zm10 9.01L7 11v2l10 .01z"/></svg>
+        </div>
+        <div>
+          <h3 class="feature-title text-headline-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}即時 TL;DR{{- else -}}Instant TL;DR{{- end -}}
+          </h3>
+          <p class="feature-desc text-body-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}毫秒級產出關鍵摘要，迅速掌握文章精髓。{{- else -}}Key insights at speed — grasp any article in seconds.{{- end -}}
+          </p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon-wrapper" aria-hidden="true">
+          {{/* Code brackets icon */}}
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+        </div>
+        <div>
+          <h3 class="feature-title text-headline-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}深度技術分析{{- else -}}Technical Depth{{- end -}}
+          </h3>
+          <p class="feature-desc text-body-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}深度技術分析，涵蓋代碼實作與架構邏輯。{{- else -}}In-depth analysis covering implementation details and architecture.{{- end -}}
+          </p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon-wrapper" aria-hidden="true">
+          {{/* Translate icon */}}
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>
+        </div>
+        <div>
+          <h3 class="feature-title text-headline-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}多語言支援{{- else -}}Multi-language{{- end -}}
+          </h3>
+          <p class="feature-desc text-body-md">
+            {{- if eq .Site.Language.Lang "zh-tw" -}}多語言支援，跨越語言障礙獲取第一手資訊。{{- else -}}Bilingual summaries in English and Traditional Chinese.{{- end -}}
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {{/* ── Daily Archive Grid ───────────────────────────────────────── */}}
+  <section class="archive-section">
+
+    <div class="archive-header">
+      <div>
+        <span class="archive-label text-label-md">Archive</span>
+        <h2 class="archive-title text-headline-lg">
+          {{- if eq .Site.Language.Lang "zh-tw" -}}每日存檔{{- else -}}Daily Archive{{- end -}}
+        </h2>
+      </div>
+    </div>
+
+    {{/* Collect posts scoped to current language; sort newest-first */}}
+    {{ $posts := where .Site.RegularPages "Section" "posts" }}
+    {{/* IMPORTANT: .Paginate must be called unconditionally — before any if/else —
+         to prevent Hugo errors on paginated routes (/page/2/, /page/3/, etc.) */}}
+    {{ $paginator := .Paginate ($posts.ByDate.Reverse) 9 }}
+
+    {{ if not $paginator.Pages }}
+
+    {{/* Empty state */}}
+    <div class="bento-empty-state">
+      <p>
+        {{- if eq .Site.Language.Lang "zh-tw" -}}
+        尚無歷史存檔摘要。新增部落格來源以開始生成。
+        {{- else -}}
+        No historical archives yet. Add blog sources to start generating.
+        {{- end -}}
+      </p>
+    </div>
+
+    {{ else }}
+
+    {{/* Bento grid */}}
+    <div class="bento-grid" role="list">
+      {{ range $paginator.Pages }}
+      {{ $count := len .Params.articles }}
+      {{ $viewLabel := printf "View Summary for %s" (.Date | time.Format "January 2, 2006") }}
+      {{ if eq $.Site.Language.Lang "zh-tw" }}
+        {{ $viewLabel = printf "查看 %s 摘要" (.Date | time.Format "2006年1月2日") }}
+      {{ end }}
+      <article class="bento-card card" role="listitem">
+
+        <div class="bento-card-header">
+          <span class="bento-card-date">
+            {{- if eq $.Site.Language.Lang "zh-tw" -}}
+            {{- .Date | time.Format "2006年1月2日" -}}
+            {{- else -}}
+            {{- .Date | time.Format "January 2, 2006" -}}
+            {{- end -}}
+          </span>
+          <span class="article-count-badge">
+            {{ $count }}
+            {{- if eq $.Site.Language.Lang "zh-tw" -}}&nbsp;篇文章{{- else -}}&nbsp;articles{{- end -}}
+          </span>
+        </div>
+
+        <div class="bento-card-body">
+          <h3 class="bento-card-title text-headline-md">
+            {{- with .Params.daily_highlight -}}
+            {{ . }}
+            {{- else -}}
+            {{- if eq $.Site.Language.Lang "zh-tw" -}}
+            {{ .Date | time.Format "2006年1月2日" }} 摘要
+            {{- else -}}
+            Summary for {{ .Date | time.Format "January 2, 2006" }}
+            {{- end -}}
+            {{- end -}}
+          </h3>
+        </div>
+
+        <a href="{{ .RelPermalink }}"
+           class="btn-view-summary"
+           aria-label="{{ $viewLabel }}">
+          {{- if eq $.Site.Language.Lang "zh-tw" -}}查看摘要{{- else -}}View Summary{{- end -}}
+        </a>
+
+      </article>
+      {{ end }}
+    </div>
+
+    {{/* Pagination — only rendered when there are multiple pages */}}
+    {{ if gt $paginator.TotalPages 1 }}
+    {{ $paginationLabel := "Page navigation" }}
+    {{ if eq .Site.Language.Lang "zh-tw" }}{{ $paginationLabel = "頁面導覽" }}{{ end }}
+    <nav class="pagination-controls" aria-label="{{ $paginationLabel }}">
+      {{ if $paginator.HasPrev }}
+      <a href="{{ $paginator.Prev.URL }}" class="pagination-btn">
+        {{- if eq .Site.Language.Lang "zh-tw" -}}← 較新{{- else -}}← Newer{{- end -}}
+      </a>
+      {{ end }}
+      <span class="pagination-info">
+        {{ $paginator.PageNumber }}&thinsp;/&thinsp;{{ $paginator.TotalPages }}
+      </span>
+      {{ if $paginator.HasNext }}
+      <a href="{{ $paginator.Next.URL }}" class="pagination-btn">
+        {{- if eq .Site.Language.Lang "zh-tw" -}}較舊 →{{- else -}}Older →{{- end -}}
+      </a>
+      {{ end }}
+    </nav>
     {{ end }}
-  </main>
+
+    {{ end }}
+
+  </section>
+</main>
 {{ end }}

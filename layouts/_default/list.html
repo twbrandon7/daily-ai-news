@@ -1,7 +1,22 @@
 {{ define "main" }}
-  <main>
-    {{ range .Pages }}
-      <a href="{{ .RelPermalink }}">{{ .Title }}</a>
-    {{ end }}
-  </main>
+<main>
+  <div class="container" style="padding-top: var(--spacing-xl);">
+    <h1 class="text-headline-lg" style="color: var(--color-on-surface); margin-bottom: var(--spacing-xl);">
+      {{ .Title }}
+    </h1>
+    <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+      {{ range .Pages }}
+      <div class="card">
+        <a href="{{ .RelPermalink }}"
+           style="color: var(--color-primary); text-decoration: none; font-size: var(--fs-headline-md); font-weight: 600;">
+          {{ .Title }}
+        </a>
+        <p style="color: var(--color-on-surface-variant); font-size: var(--fs-body-md); margin-top: var(--spacing-xs);">
+          {{- if eq $.Site.Language.Lang "zh-tw" -}}{{ .Date | time.Format "2006年1月2日" }}{{- else -}}{{ .Date | time.Format "January 2, 2006" }}{{- end -}}
+        </p>
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</main>
 {{ end }}
