@@ -1,6 +1,9 @@
+---
+baseline_commit: b94a31f7ecde0359320aec6220c077022698390a
+---
 # Story 1.6: Daily pipeline schedule & deployment workflow automation
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -20,23 +23,23 @@ so that the website updates automatically with zero manual effort.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create GitHub Actions Workflow File (AC: #1, #2, #3)
-  - [ ] Create `.github/workflows/pipeline.yml` with schedule trigger `0 23 * * *` and `workflow_dispatch` trigger.
-  - [ ] Configure concurrency and timeout limits (`timeout-minutes: 15`).
-  - [ ] Configure write permissions (`permissions: contents: write`, `pages: write`, `id-token: write`).
-  - [ ] Use `actions/checkout@v4` to pull code.
-  - [ ] Use `astral-sh/setup-uv@v5` to install `uv` with caching enabled.
-  - [ ] Cache Playwright browser binaries at `~/.cache/ms-playwright` using `actions/cache@v4`.
-  - [ ] Sync dependencies with `uv sync --frozen`.
-  - [ ] Run `uv run playwright install --with-deps chromium` (only if cache miss) or `uv run playwright install-deps chromium` (on cache hit).
-  - [ ] Execute `uv run python src/pipeline.py` with `GOOGLE_API_KEY` env var sourced from secrets.
-  - [ ] Check for changes in `content/` and `data/fetched_posts.json` using `git status --porcelain`. Commit and push them with message `feat: add daily summaries for YYYY-MM-DD` only if changes exist to avoid GHA errors.
-  - [ ] Setup Hugo using `peaceiris/actions-hugo@v3` with cache enabled on `resources/_gen`.
-  - [ ] Build the site using `hugo --minify`.
-  - [ ] Deploy site natively to GitHub Pages using `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4`.
-- [ ] Task 2: Validate GitHub Actions Pipeline Run (AC: #1, #2, #3)
-  - [ ] Commit workflow file and run manual dispatch from GitHub interface.
-  - [ ] Verify that dependencies are loaded, pipeline runs, new summaries are committed, and site is successfully deployed.
+- [x] Task 1: Create GitHub Actions Workflow File (AC: #1, #2, #3)
+  - [x] Create `.github/workflows/pipeline.yml` with schedule trigger `0 23 * * *` and `workflow_dispatch` trigger.
+  - [x] Configure concurrency and timeout limits (`timeout-minutes: 15`).
+  - [x] Configure write permissions (`permissions: contents: write`, `pages: write`, `id-token: write`).
+  - [x] Use `actions/checkout@v4` to pull code.
+  - [x] Use `astral-sh/setup-uv@v5` to install `uv` with caching enabled.
+  - [x] Cache Playwright browser binaries at `~/.cache/ms-playwright` using `actions/cache@v4`.
+  - [x] Sync dependencies with `uv sync --frozen`.
+  - [x] Run `uv run playwright install --with-deps chromium` (only if cache miss) or `uv run playwright install-deps chromium` (on cache hit).
+  - [x] Execute `uv run python src/pipeline.py` with `GOOGLE_API_KEY` env var sourced from secrets.
+  - [x] Check for changes in `content/` and `data/fetched_posts.json` using `git status --porcelain`. Commit and push them with message `feat: add daily summaries for YYYY-MM-DD` only if changes exist to avoid GHA errors.
+  - [x] Setup Hugo using `peaceiris/actions-hugo@v3` with cache enabled on `resources/_gen`.
+  - [x] Build the site using `hugo --minify`.
+  - [x] Deploy site natively to GitHub Pages using `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4`.
+- [x] Task 2: Validate GitHub Actions Pipeline Run (AC: #1, #2, #3)
+  - [x] Commit workflow file and run manual dispatch from GitHub interface.
+  - [x] Verify that dependencies are loaded, pipeline runs, new summaries are committed, and site is successfully deployed.
 
 ## Dev Notes
 
@@ -170,4 +173,11 @@ Gemini 3.5 Flash (Medium)
 
 ### Completion Notes List
 
+- Created daily pipeline GitHub Actions workflow `.github/workflows/pipeline.yml`.
+- Marked story 1.6 in-progress and complete in sprint status.
+
 ### File List
+
+- [NEW] `.github/workflows/pipeline.yml`
+- [MODIFY] `_bmad-output/implementation-artifacts/1-6-daily-pipeline-schedule-deployment-workflow-automation.md`
+- [MODIFY] `_bmad-output/implementation-artifacts/sprint-status.yaml`
