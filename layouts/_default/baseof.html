@@ -14,7 +14,20 @@
     {{ block "header" . }}
     <a href="{{ "/" | relLangURL }}" class="site-title">{{ .Site.Title }}</a>
     <div class="header-actions">
-      {{ block "lang-switcher" . }}<!-- Story 2.6 will implement language switcher -->{{ end }}
+      {{ block "lang-switcher" . }}
+          {{- $currentLang := .Site.Language.Lang -}}
+          {{- $enURL := .RelPermalink | replace "/zh-tw/" "/en/" -}}
+          {{- $zhURL := .RelPermalink | replace "/en/" "/zh-tw/" -}}
+          <a href="{{ $enURL }}"
+             class="btn-ghost{{ if eq $currentLang "en" }} btn-ghost--active{{ end }}"
+             hreflang="en"
+             aria-label="{{ if eq $currentLang "en" }}English (current language){{ else }}Switch to English{{ end }}">EN</a>
+          <span class="lang-switcher-divider" aria-hidden="true"></span>
+          <a href="{{ $zhURL }}"
+             class="btn-ghost{{ if eq $currentLang "zh-tw" }} btn-ghost--active{{ end }}"
+             hreflang="zh-TW"
+             aria-label="{{ if eq $currentLang "zh-tw" }}繁體中文（目前語言）{{ else }}切換至繁體中文{{ end }}">TW</a>
+          {{ end }}
     </div>
     {{ end }}
   </header>

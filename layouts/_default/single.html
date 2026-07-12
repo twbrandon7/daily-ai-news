@@ -53,7 +53,6 @@
         type="search"
         placeholder="{{ $searchPlaceholder }}"
         aria-label="{{ $searchPlaceholder }}"
-        disabled
       >
     </div>
 
@@ -67,7 +66,12 @@
           {{ if and (lt $tagCount 10) (not ($seen.Get .)) }}
             {{- $seen.Set . true -}}
             {{- $tagCount = add $tagCount 1 -}}
-            <span class="tag-pill" style="background:rgba(0,74,198,0.08);color:var(--color-primary);">{{ . }}</span>
+            <span class="tag-pill tag-pill--filter"
+                  data-filter-tag="{{ . }}"
+                  role="button"
+                  tabindex="0"
+                  aria-pressed="false"
+                  style="background:rgba(0,74,198,0.08);color:var(--color-primary);">{{ . }}</span>
           {{ end }}
         {{ end }}
       {{ end }}
@@ -93,6 +97,15 @@
         </div>
       </div>
       {{ end }}
+    </div>
+
+    {{- $noResultsMsg := "No matching articles found." -}}
+    {{- if eq .Site.Language.Lang "zh-tw" -}}{{- $noResultsMsg = "找不到符合的文章或標籤。" -}}{{- end -}}
+    {{- $clearLabel := "Clear search" -}}
+    {{- if eq .Site.Language.Lang "zh-tw" -}}{{- $clearLabel = "清除搜尋" -}}{{- end -}}
+    <div class="sidebar-search-empty" id="sidebar-no-results" style="display:none;" aria-live="polite">
+      <p>{{ $noResultsMsg }}</p>
+      <button class="btn-ghost" id="sidebar-reset-search" type="button">{{ $clearLabel }}</button>
     </div>
 
   </aside>

@@ -1071,3 +1071,51 @@ h6 {
   color: var(--color-primary);
   text-decoration: underline;
 }
+
+/* ============================================================
+   36. Language switcher (.lang-switcher-divider, .btn-ghost--active)
+   ============================================================ */
+
+/* Active state for current-language ghost button */
+.btn-ghost--active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: rgba(0, 74, 198, 0.05);
+}
+
+/* Thin vertical divider between EN and TW buttons */
+.lang-switcher-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-low);
+  margin: 0 2px;
+  align-self: center;
+}
+
+/* ============================================================
+   37. Tag filter active state (.tag-pill--filter-active)
+   ============================================================ */
+
+/* !important required to override the inline style="..." on sidebar tag pills */
+.tag-pill--filter-active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ============================================================
+   38. Sidebar search empty state (.sidebar-search-empty)
+   ============================================================ */
+
+.sidebar-search-empty {
+  padding: var(--spacing-md);
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-body-md);
+  line-height: var(--lh-body-md);
+  color: var(--color-on-surface-variant);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+}

@@ -17,6 +17,20 @@
 
   var lang = document.documentElement.lang; // "en" or "zh-tw"
 
+  // ── localStorage key for article index (language-switch context preservation) ──
+  var dateMatch  = window.location.pathname.match(/\/posts\/(\d{4}-\d{2}-\d{2})\//);
+  var storageKey = 'articleIdx_' + (dateMatch ? dateMatch[1] : 'default');
+
+  // ── Search / filter state ──
+  var activeSearchQuery = '';
+  var activeTagFilter   = '';
+
+  // ── Additional DOM refs ──
+  var searchInput = document.querySelector('.sidebar-search-input');
+  var tagPills    = Array.prototype.slice.call(document.querySelectorAll('.tag-pill--filter'));
+  var emptyState  = document.getElementById('sidebar-no-results');
+  var resetBtn    = document.getElementById('sidebar-reset-search');
+
   /* ── 2. Helpers ──────────────────────────────────────── */
   function esc(str) {
     return String(str || '')
@@ -58,7 +72,34 @@
     '</ul>';
   }
 
-  /* ── 3. Render article to detail panel ───────────────── */
+  /* ── 3. Filter sidebar articles (Story 2.6) ─────────── */
+  function filterArticles() {
+    var query = activeSearchQuery.toLowerCase().trim();
+    var tag   = activeTagFilter.toLowerCase().trim();
+    var count = 0;
+
+    cards.forEach(function (card) {
+      var idx = parseInt(card.getAttribute('data-article-index'), 10);
+      var art = articles[idx];
+      if (!art) { card.style.display = 'none'; return; }
+
+      var title   = String(art.title || '').toLowerCase();
+      var tagList = Array.isArray(art.tags_action)
+        ? art.tags_action.filter(function (t) { return typeof t === 'string'; })
+        : [];
+      var inTitle  = !query || title.indexOf(query) !== -1;
+      var inTags   = !query || tagList.some(function (t) { return t.toLowerCase().indexOf(query) !== -1; });
+      var tagMatch = !tag   || tagList.some(function (t) { return t.toLowerCase() === tag; });
+
+      var show = (inTitle || inTags) && tagMatch;
+      card.style.display = show ? '' : 'none';
+      if (show) count++;
+    });
+
+    if (emptyState) emptyState.style.display = count === 0 ? '' : 'none';
+  }
+
+  /* ── 4. Render article to detail panel ───────────────── */
   function renderArticle(article) {
     var isTw = lang === 'zh-tw';
 
@@ -136,7 +177,7 @@
     detailPanel.innerHTML = html;
   }
 
-  /* ── 4. Activate card and render ─────────────────────── */
+  /* ── 5. Activate card and render ─────────────────────── */
   function activateCard(idx) {
     cards.forEach(function (card) {
       card.classList.remove('active-card-indicator');
@@ -148,9 +189,10 @@
       target.setAttribute('aria-selected', 'true');
     }
     if (articles[idx]) renderArticle(articles[idx]);
+    try { localStorage.setItem(storageKey, idx); } catch (e) {} // Story 2.6: persist for lang-switch
   }
 
-  /* ── 5. Attach event listeners ───────────────────────── */
+  /* ── 6. Attach event listeners ───────────────────────── */
   cards.forEach(function (card) {
     card.style.cursor = 'pointer';
     card.addEventListener('click', function () {
@@ -163,5 +205,70 @@
       }
     });
   });
+
+  /* ── 7. Restore saved article on language switch ─────── */
+  (function () {
+    var savedIdx = 0;
+    try {
+      var saved = localStorage.getItem(storageKey);
+      if (saved !== null) {
+        var parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed < articles.length) {
+          savedIdx = parsed;
+        }
+      }
+    } catch (e) {}
+    if (savedIdx > 0) activateCard(savedIdx);
+  }());
+
+  /* ── 8. Search input ─────────────────────────────────── */
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      activeSearchQuery = searchInput.value;
+      filterArticles();
+    });
+  }
+
+  /* ── 9. Tag pill filter ──────────────────────────────── */
+  tagPills.forEach(function (pill) {
+    pill.style.cursor = 'pointer';
+    function toggleTag() {
+      var tag = (pill.getAttribute('data-filter-tag') || '').toLowerCase();
+      if (activeTagFilter === tag) {
+        // Deselect current tag filter
+        activeTagFilter = '';
+        tagPills.forEach(function (p) {
+          p.classList.remove('tag-pill--filter-active');
+          p.setAttribute('aria-pressed', 'false');
+        });
+      } else {
+        activeTagFilter = tag;
+        tagPills.forEach(function (p) {
+          var active = (p.getAttribute('data-filter-tag') || '').toLowerCase() === tag;
+          p.classList.toggle('tag-pill--filter-active', active);
+          p.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+      }
+      filterArticles();
+    }
+    pill.addEventListener('click', toggleTag);
+    pill.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTag(); }
+    });
+  });
+
+  /* ── 10. Reset search / filter ───────────────────────── */
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      activeSearchQuery = '';
+      activeTagFilter   = '';
+      if (searchInput) searchInput.value = '';
+      tagPills.forEach(function (p) {
+        p.classList.remove('tag-pill--filter-active');
+        p.setAttribute('aria-pressed', 'false');
+      });
+      filterArticles();
+    });
+  }
 
 }());
