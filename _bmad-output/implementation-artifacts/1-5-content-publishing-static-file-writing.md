@@ -1,6 +1,9 @@
+---
+baseline_commit: 32fbb7f50b26b5d77ee6baba9c8e143a2a6b2002
+---
 # Story 1.5: Content Publishing & Static File Writing
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
