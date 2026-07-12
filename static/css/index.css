@@ -1,0 +1,391 @@
+/* ==========================================================================
+   Daily AI News — Design System
+   static/css/index.css
+   Zero-dependency hand-written CSS — NO external frameworks (AD-5)
+   ========================================================================== */
+
+/* 1. Google Fonts @import — Inter (fallback: <link> in baseof.html is preferred) */
+/* Primary font load is via <link> + preconnect in baseof.html for performance. */
+
+/* 2. CSS Custom Properties (:root) — design tokens */
+:root {
+  /* --- Brand --- */
+  --color-primary:                  #004ac6;
+  --color-on-primary:               #ffffff;
+  --color-primary-container:        #2563eb;
+  --color-on-primary-container:     #eeefff;
+  --color-inverse-primary:          #b4c5ff;
+
+  /* --- Secondary --- */
+  --color-secondary:                #4648d4;
+  --color-on-secondary:             #ffffff;
+  --color-secondary-container:      #6063ee;
+  --color-on-secondary-container:   #fffbff;
+
+  /* --- Tertiary (semantic accents) --- */
+  --color-tertiary:                 #943700;
+  --color-tertiary-container:       #bc4800;
+  --color-on-tertiary-container:    #ffede6;
+
+  /* --- Error --- */
+  --color-error:                    #ba1a1a;
+  --color-error-container:          #ffdad6;
+  --color-on-error-container:       #93000a;
+
+  /* --- Surface tonal layers --- */
+  --color-background:               #f7f9fb;  /* L0: Canvas */
+  --color-surface:                  #f7f9fb;
+  --color-surface-container-lowest: #ffffff;  /* L1: Cards/sidebar */
+  --color-surface-container-low:    #f2f4f6;
+  --color-surface-container:        #eceef0;
+  --color-surface-container-high:   #e6e8ea;
+  --color-surface-container-highest:#e0e3e5;
+  --color-surface-dim:              #d8dadc;
+  --color-surface-bright:           #f7f9fb;
+  --color-surface-tint:             #0053db;
+  --color-inverse-surface:          #2d3133;
+  --color-inverse-on-surface:       #eff1f3;
+
+  /* --- Text --- */
+  --color-on-surface:               #191c1e;  /* Primary text */
+  --color-on-surface-variant:       #434655;  /* Secondary text */
+  --color-on-background:            #191c1e;
+
+  /* --- Outlines / Borders --- */
+  --color-outline:                  #737686;
+  --color-outline-variant:          #c3c6d7;
+  --color-border-low:               #e2e8f0;  /* L1 card borders (tonal) */
+
+  /* --- Fixed --- */
+  --color-primary-fixed:            #dbe1ff;
+  --color-primary-fixed-dim:        #b4c5ff;
+  --color-on-primary-fixed:         #00174b;
+  --color-on-primary-fixed-variant: #003ea8;
+
+  /* --- Border Radii --- */
+  --radius-sm:      0.125rem;  /* 2px  */
+  --radius-default: 0.25rem;   /* 4px  — standard elements: buttons, inputs, tags */
+  --radius-md:      0.375rem;  /* 6px  */
+  --radius-lg:      0.5rem;    /* 8px  — large elements: article cards, summary containers */
+  --radius-xl:      0.75rem;   /* 12px */
+  --radius-full:    9999px;    /* pill shape */
+
+  /* --- Spacing --- */
+  --spacing-xs:            4px;
+  --spacing-sm:            8px;
+  --spacing-md:            16px;
+  --spacing-lg:            24px;
+  --spacing-xl:            32px;
+  --spacing-2xl:           48px;
+  --spacing-container-max: 1440px;
+  --spacing-nav-width:     280px;
+
+  /* --- Typography --- */
+  --font-inter: 'Inter';  /* loaded from Google Fonts via <link> in baseof.html */
+
+  /* Font sizes */
+  --fs-headline-xl:         30px;
+  --fs-headline-lg:         24px;
+  --fs-headline-lg-mobile:  20px;
+  --fs-headline-md:         18px;
+  --fs-body-lg:             16px;
+  --fs-body-md:             14px;
+  --fs-label-md:            12px;
+  --fs-label-sm:            11px;
+
+  /* Line heights */
+  --lh-headline-xl:         38px;
+  --lh-headline-lg:         32px;
+  --lh-headline-lg-mobile:  28px;
+  --lh-headline-md:         26px;
+  --lh-body-lg:             24px;
+  --lh-body-md:             20px;
+  --lh-label-md:            16px;
+  --lh-label-sm:            14px;
+
+  /* Font weights */
+  --fw-headline-xl:  700;
+  --fw-headline-lg:  600;
+  --fw-headline-md:  600;
+  --fw-body-lg:      400;
+  --fw-body-md:      400;
+  --fw-label-md:     600;
+  --fw-label-sm:     500;
+
+  /* Letter spacing */
+  --ls-headline-xl: -0.02em;
+  --ls-headline-lg: -0.01em;
+  --ls-label-md:     0.05em;
+
+  /* --- Elevation / Shadow --- */
+  --shadow-none:   none;                               /* L0 and L1 */
+  --shadow-l2:     0 4px 6px -1px rgb(0 0 0 / 0.05);  /* L2: active dropdowns */
+  --shadow-hover:  0 2px 8px -1px rgb(0 0 0 / 0.08);  /* interactive card hover */
+
+  /* --- Transitions --- */
+  --transition-all: all 0.2s ease-in-out;
+}
+
+/* 3. CSS Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  font: inherit;
+}
+
+/* 4. Base typography — body font, global text color */
+body {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-body-md);
+  font-weight: var(--fw-body-md);
+  line-height: var(--lh-body-md);
+  color: var(--color-on-surface);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+/* 5. Typography utility classes */
+
+.text-headline-xl {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-headline-xl);
+  font-weight: var(--fw-headline-xl);
+  line-height: var(--lh-headline-xl);
+  letter-spacing: var(--ls-headline-xl);
+}
+
+.text-headline-lg {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-headline-lg);
+  font-weight: var(--fw-headline-lg);
+  line-height: var(--lh-headline-lg);
+  letter-spacing: var(--ls-headline-lg);
+}
+
+.text-headline-lg-mobile {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-headline-lg-mobile);
+  font-weight: var(--fw-headline-lg);
+  line-height: var(--lh-headline-lg-mobile);
+}
+
+.text-headline-md {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-headline-md);
+  font-weight: var(--fw-headline-md);
+  line-height: var(--lh-headline-md);
+}
+
+.text-body-lg {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-body-lg);
+  font-weight: var(--fw-body-lg);
+  line-height: var(--lh-body-lg);
+}
+
+.text-body-md {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-body-md);
+  font-weight: var(--fw-body-md);
+  line-height: var(--lh-body-md);
+}
+
+.text-label-md {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-label-md);
+  font-weight: var(--fw-label-md);
+  line-height: var(--lh-label-md);
+  letter-spacing: var(--ls-label-md);
+  text-transform: uppercase;
+}
+
+.text-label-sm {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-label-sm);
+  font-weight: var(--fw-label-sm);
+  line-height: var(--lh-label-sm);
+}
+
+/* 6. Tonal layer utilities */
+
+.layer-0 {
+  background: var(--color-background);
+}
+
+.layer-1 {
+  background: #ffffff;
+  border: 1px solid var(--color-border-low);
+}
+
+.layer-2 {
+  background: #ffffff;
+  border: 1px solid var(--color-border-low);
+  box-shadow: var(--shadow-l2);
+}
+
+.interactive-hover {
+  transition: var(--transition-all);
+}
+
+.interactive-hover:hover {
+  background: #f1f5f9;
+  box-shadow: var(--shadow-hover);
+}
+
+/* 7. Layout primitives */
+
+.container {
+  max-width: var(--spacing-container-max); /* 1440px */
+  margin-inline: auto;
+  padding-inline: var(--spacing-lg);       /* 24px each side */
+}
+
+.grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--spacing-xl);                  /* 32px */
+}
+
+.col-4  { grid-column: span 4; }
+.col-8  { grid-column: span 8; }
+.col-12 { grid-column: span 12; }
+
+/* 8. Responsive collapse (@media max-width: 767px) */
+@media (max-width: 767px) {
+  .grid-12 {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  .col-4,
+  .col-8,
+  .col-12 {
+    grid-column: span 1;
+  }
+}
+
+/* 9. Global header (.site-header, .site-title, .header-actions) */
+
+.site-header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 64px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-border-low);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-lg);
+}
+
+.site-header .site-title {
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-headline-md);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* 10. Button base (.btn-ghost) */
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* NFR-6 minimum click target */
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-default);
+  font-family: var(--font-inter), sans-serif;
+  font-size: var(--fs-body-md);
+  font-weight: 500;
+  line-height: var(--lh-body-md);
+  cursor: pointer;
+  text-decoration: none;
+  transition: var(--transition-all);
+}
+
+.btn-ghost:hover {
+  border-color: var(--color-border-low);
+  background: var(--color-surface-container-low);
+}
+
+/* 11. Card base (.card) */
+
+.card {
+  background: #ffffff;
+  border: 1px solid var(--color-border-low);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+/* 12. Tag pill (.tag-pill) */
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-label-sm);
+  font-weight: 500;
+  line-height: var(--lh-label-sm);
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* 13. Content wrapper (.site-content) */
+
+.site-content {
+  padding-top: 64px;   /* offset for fixed header */
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+/* 14. Active card indicator (.active-card-indicator) */
+
+.active-card-indicator {
+  border-left: 3px solid var(--color-primary);
+  background: rgba(0, 74, 198, 0.05);
+}
+
+/* 15. Accessibility — focus ring */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-default);
+}
