@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-11 19:45
-last_updated: 2026-07-12 16:00
+last_updated: 2026-07-12 16:31
 project: daily-ai-news
 project_key: NOKEY
 tracking_system: file-system
@@ -56,9 +56,9 @@ development_status:
   1-5-content-publishing-static-file-writing: done
   1-6-daily-pipeline-schedule-deployment-workflow-automation: done
   epic-1-retrospective: optional
-  epic-2: backlog
-  2-1-hugo-multilingual-setup-configuration-research: backlog
-  2-2-zero-dependency-layout-asset-architecture: backlog
+  epic-2: in-progress
+  2-1-hugo-multilingual-setup-configuration-research: done
+  2-2-zero-dependency-layout-asset-architecture: done
   2-3-bento-grid-archive-layout-homepage: backlog
   2-4-split-pane-detail-layout-daily-summary: backlog
   2-5-interactive-javascript-switcher-integration: backlog
