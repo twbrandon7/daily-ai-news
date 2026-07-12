@@ -215,6 +215,7 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
         "rating": 4,
     }
     monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
     
     # Run pipeline main
     await pipeline.main()
@@ -320,6 +321,7 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
         "rating": 4,
     }
     monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
     
     # Force a failure during saving of parsed_articles.json by mocking open
     import builtins
@@ -399,7 +401,8 @@ async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeyp
     async def fake_translate(url, summary):
         return summary
     monkeypatch.setattr(pipeline, "translate_summary", fake_translate)
-
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
+ 
     await pipeline.main()
 
     parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
@@ -419,6 +422,7 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
     """
     import os, json, yaml
     from src import pipeline
+    from unittest.mock import AsyncMock
 
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
     monkeypatch.chdir(tmp_path)
@@ -465,7 +469,8 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
 
     monkeypatch.setattr(pipeline, "summarize_article", fake_summarize)
     monkeypatch.setattr(pipeline, "translate_summary", fake_translate)
-
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
+ 
     await pipeline.main()
 
     parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
@@ -474,3 +479,70 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
         assert "summary" in article
         assert "summary_zh_tw" in article
         assert "fail" not in article["url"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
+    """
+    Test pipeline interaction with write_daily_posts.
+    If write_daily_posts fails, main exits with 1, and no parsed_articles.json is written.
+    """
+    import os, json, yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.chdir(tmp_path)
+    os.makedirs(tmp_path / "data")
+
+    urls = ["https://ok.com"]
+    (tmp_path / "data/blogs.yaml").write_text(yaml.dump({"blogs": urls}))
+    (tmp_path / "data/fetched_posts.json").write_text("[]")
+
+    def make_crawl_result(url):
+        return MockCrawlResult(
+            success=True,
+            url=url,
+            markdown="body",
+            metadata={"title": "Title", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+        )
+
+    class MockCrawler:
+        async def arun(self, url, config):
+            return make_crawl_result(url)
+
+    class MockCrawlerCtx:
+        async def __aenter__(self): return MockCrawler()
+        async def __aexit__(self, *_): pass
+
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockCrawlerCtx)
+
+    mock_summary = {
+        "tldr": "ok",
+        "problem_why": "p",
+        "solution_how": "s",
+        "insights_tradeoffs": {"pros": ["a"], "cons": ["b"]},
+        "tags_action": ["t"],
+        "rating": 3,
+    }
+    monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
+    monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_summary))
+
+    # Scenario 1: write_daily_posts fails by raising an exception
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(side_effect=RuntimeError("Publish fail")))
+    with pytest.raises(SystemExit) as excinfo:
+        await pipeline.main()
+    assert excinfo.value.code == 1
+    assert not (tmp_path / "data/parsed_articles.json").exists()
+
+    # Scenario 2: write_daily_posts returns False
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=False))
+    with pytest.raises(SystemExit) as excinfo:
+        await pipeline.main()
+    assert excinfo.value.code == 1
+    assert not (tmp_path / "data/parsed_articles.json").exists()
+
+    # Scenario 3: write_daily_posts succeeds
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
+    await pipeline.main()
+    assert (tmp_path / "data/parsed_articles.json").exists()

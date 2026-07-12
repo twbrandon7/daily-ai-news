@@ -13,6 +13,7 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 
 from src.summarizer import summarize_article
 from src.translator import translate_summary
+from src.publisher import write_daily_posts
 
 def log_error(blog_url: str, error_message: str):
     """Log error in the required JSON format."""
@@ -286,8 +287,20 @@ async def main():
         print(f"Successful crawls: {len(successes)}")
         print(f"Failed crawls: {len(failures)}")
         
-        # Save parsed articles to data/parsed_articles.json
+        # Publish daily posts if there are successes
         if successes:
+            today_str = datetime.date.today().isoformat()
+            try:
+                pub_success = await write_daily_posts(today_str, successes)
+                if not pub_success:
+                    print("Error: Publishing daily posts failed.", file=sys.stderr)
+                    sys.exit(1)
+            except Exception as e:
+                # write_daily_posts already logs structured JSON to stderr with stage: "publish"
+                print(f"Error: Publishing failed: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            # Save parsed articles to data/parsed_articles.json
             output_dir = "data"
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, "parsed_articles.json")
