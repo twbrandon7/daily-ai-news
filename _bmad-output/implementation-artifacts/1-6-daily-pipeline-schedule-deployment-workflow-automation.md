@@ -3,7 +3,7 @@ baseline_commit: b94a31f7ecde0359320aec6220c077022698390a
 ---
 # Story 1.6: Daily pipeline schedule & deployment workflow automation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -40,6 +40,15 @@ so that the website updates automatically with zero manual effort.
 - [x] Task 2: Validate GitHub Actions Pipeline Run (AC: #1, #2, #3)
   - [x] Commit workflow file and run manual dispatch from GitHub interface.
   - [x] Verify that dependencies are loaded, pipeline runs, new summaries are committed, and site is successfully deployed.
+
+### Review Findings
+
+- [x] [Review][Patch] Deviated change check and potential fatal pathspec error on missing files [.github/workflows/pipeline.yml:62]
+- [x] [Review][Patch] Playwright cache uses pyproject.toml instead of lockfile [.github/workflows/pipeline.yml:40]
+- [x] [Review][Patch] Broad global permissions configured at workflow level [.github/workflows/pipeline.yml:8]
+- [x] [Review][Patch] Deploy-pages job lacks branch constraint [.github/workflows/pipeline.yml:90]
+- [x] [Review][Patch] Git push race condition in parallel runs [.github/workflows/pipeline.yml:65]
+- [x] [Review][Patch] Hugo cache key lacks versioning or config variables [.github/workflows/pipeline.yml:80]
 
 ## Dev Notes
 
