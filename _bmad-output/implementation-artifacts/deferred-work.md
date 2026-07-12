@@ -29,3 +29,7 @@
 
 - Document `<title>` vs H1 heading mismatch — base template renders `<title>{{ .Title }} | {{ .Site.Title }}</title>` while the homepage H1 is hardcoded "Daily AI Insights"; SEO/a11y mismatch. Pre-existing, outside story 2-3 scope.
 - Article count badge "1 articles" plural grammar — badge always renders `{{ $count }} articles` without a plural check; "1 articles" is grammatically incorrect. No plural i18n infrastructure in scope for story 2-3.
+
+## Deferred from: code review of 2-5-interactive-javascript-switcher-integration (2026-07-12)
+
+- `aria-selected` on `role="listitem"` elements — ARIA spec violation; `aria-selected` is only valid on option/row/tab/treeitem/gridcell roles. Requires sidebar widget to be refactored as `role="listbox"` with `role="option"` item cards. Architectural change outside story 2-5 scope; defer to a dedicated accessibility hardening story.
