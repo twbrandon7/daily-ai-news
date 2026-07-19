@@ -16,8 +16,8 @@
     <div class="header-actions">
       {{ block "lang-switcher" . }}
           {{- $currentLang := .Site.Language.Lang -}}
-          {{- $enURL := .RelPermalink | replace "/zh-tw/" "/en/" -}}
-          {{- $zhURL := .RelPermalink | replace "/en/" "/zh-tw/" -}}
+          {{- $enURL := replace .RelPermalink "/zh-tw/" "/en/" -}}
+          {{- $zhURL := replace .RelPermalink "/en/" "/zh-tw/" -}}
           <a href="{{ $enURL }}"
              class="btn-ghost{{ if eq $currentLang "en" }} btn-ghost--active{{ end }}"
              hreflang="en"
