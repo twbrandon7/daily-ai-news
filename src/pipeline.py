@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import email.utils
 import json
 import os
 import re
@@ -18,6 +19,29 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 from src.summarizer import summarize_article
 from src.translator import translate_summary
 from src.publisher import write_daily_posts
+
+DEFAULT_CUTOFF_DATE = "2026-07-24"
+
+def parse_date_to_iso(date_str: str) -> str | None:
+    """Parse various RSS/Atom/HTML date formats into YYYY-MM-DD string."""
+    if not date_str or not isinstance(date_str, str) or not date_str.strip():
+        return None
+    date_str = date_str.strip()
+    
+    # Check for YYYY-MM-DD pattern directly
+    match = re.search(r'\d{4}-\d{2}-\d{2}', date_str)
+    if match:
+        return match.group(0)
+        
+    # Try RFC 2822 (common in RSS pubDate: e.g. "Sun, 25 Jul 2026 12:00:00 GMT")
+    try:
+        parsed_dt = email.utils.parsedate_to_datetime(date_str)
+        if parsed_dt:
+            return parsed_dt.date().isoformat()
+    except Exception:
+        pass
+        
+    return None
 
 def log_error(blog_url: str, error_message: str):
     """Log error in the required JSON format."""
@@ -52,7 +76,7 @@ def get_url_hash(url: str) -> str:
     normalized = normalize_url(url)
     return hashlib.md5(normalized.encode('utf-8')).hexdigest()
 
-def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
+def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUTOFF_DATE) -> list[dict]:
     """Resolve a list of config URLs (RSS feeds) to a list of article dicts to crawl."""
     resolved = []
     for url in config_urls:
@@ -97,6 +121,10 @@ def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
                     
                     if link:
                         link = urljoin(url, link)
+                        pub_date_iso = parse_date_to_iso(pub_date)
+                        if pub_date_iso and pub_date_iso < cutoff_date:
+                            print(f"  Skipping article published before cutoff ({pub_date_iso} < {cutoff_date}): {link}")
+                            continue
                         feed_articles.append({
                             "url": link,
                             "title": title,
@@ -130,6 +158,10 @@ def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
                             
                     if link:
                         link = urljoin(url, link)
+                        pub_date_iso = parse_date_to_iso(pub_date)
+                        if pub_date_iso and pub_date_iso < cutoff_date:
+                            print(f"  Skipping article published before cutoff ({pub_date_iso} < {cutoff_date}): {link}")
+                            continue
                         feed_articles.append({
                             "url": link,
                             "title": title,
@@ -138,10 +170,10 @@ def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
                             "feed_url": url
                         })
             if not feed_articles:
-                print(f"Error: No articles found in feed {url}. Skipping.", file=sys.stderr)
+                print(f"Error: No articles found in feed {url} after cutoff filter. Skipping.", file=sys.stderr)
                 continue
                 
-            print(f"  Found {len(feed_articles)} articles in feed.")
+            print(f"  Found {len(feed_articles)} articles in feed after cutoff filter.")
             resolved.extend(feed_articles)
         except Exception as e:
             print(f"Error accessing or parsing feed {url}: {e}. Skipping.", file=sys.stderr)
@@ -343,6 +375,7 @@ async def run_crawl():
         sys.exit(1)
             
     urls = blog_config.get("blogs", [])
+    cutoff_date = blog_config.get("cutoff_date", DEFAULT_CUTOFF_DATE)
     if not urls:
         print("Warning: No URLs found in data/blogs.yaml")
         os.makedirs("data/crawled", exist_ok=True)
@@ -350,8 +383,8 @@ async def run_crawl():
             json.dump([], f, indent=2)
         return []
 
-    # Resolve URLs (RSS feeds to articles, or direct HTML)
-    articles_to_crawl = resolve_urls_to_crawl(urls)
+    # Resolve URLs (RSS feeds to articles)
+    articles_to_crawl = resolve_urls_to_crawl(urls, cutoff_date=cutoff_date)
 
     # Setup CrawlerRunConfig with PruningContentFilter to exclude headers, footers, sidebars
     run_config = CrawlerRunConfig(

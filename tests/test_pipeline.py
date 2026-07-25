@@ -830,4 +830,48 @@ async def test_pipeline_standalone_files_creation(tmp_path, monkeypatch):
     trans_data = json.loads(translated_file.read_text())
     assert trans_data["summary_zh_tw"] == mock_trans
 
+def test_parse_date_to_iso():
+    from src.pipeline import parse_date_to_iso
+    assert parse_date_to_iso("Sun, 25 Jul 2026 12:00:00 GMT") == "2026-07-25"
+    assert parse_date_to_iso("2026-07-24T15:30:00Z") == "2026-07-24"
+    assert parse_date_to_iso("2026-07-23") == "2026-07-23"
+    assert parse_date_to_iso("invalid date") is None
+    assert parse_date_to_iso("") is None
+
+def test_resolve_urls_to_crawl_cutoff_filter(monkeypatch):
+    from src.pipeline import resolve_urls_to_crawl
+    xml_content = """<?xml version="1.0" encoding="UTF-8" ?>
+    <rss version="2.0">
+    <channel>
+      <item>
+        <title>New Article</title>
+        <link>https://example.com/new</link>
+        <pubDate>Sun, 25 Jul 2026 12:00:00 GMT</pubDate>
+      </item>
+      <item>
+        <title>Cutoff Date Article</title>
+        <link>https://example.com/cutoff</link>
+        <pubDate>Fri, 24 Jul 2026 12:00:00 GMT</pubDate>
+      </item>
+      <item>
+        <title>Old Article</title>
+        <link>https://example.com/old</link>
+        <pubDate>Thu, 23 Jul 2026 12:00:00 GMT</pubDate>
+      </item>
+    </channel>
+    </rss>
+    """
+    class MockResponse:
+        content = xml_content.encode('utf-8')
+        def raise_for_status(self): pass
+    monkeypatch.setattr("requests.get", lambda *a, **kw: MockResponse())
+    
+    # Filter with cutoff_date = "2026-07-24" (allows 2026-07-24 and 2026-07-25)
+    res = resolve_urls_to_crawl(["https://example.com/feed"], cutoff_date="2026-07-24")
+    assert len(res) == 2
+    urls = [r["url"] for r in res]
+    assert "https://example.com/new" in urls
+    assert "https://example.com/cutoff" in urls
+    assert "https://example.com/old" not in urls
+
 
