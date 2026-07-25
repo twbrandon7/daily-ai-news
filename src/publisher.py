@@ -233,10 +233,14 @@ async def write_daily_posts(date_str: str, articles: list[dict]) -> bool:
 
         # Format frontmatter as YAML block style
         en_frontmatter = {
+            "title": date_str,
+            "date": date_str,
             "daily_highlight": highlight_en,
             "articles": en_articles_frontmatter
         }
         zh_frontmatter = {
+            "title": date_str,
+            "date": date_str,
             "daily_highlight": highlight_zh,
             "articles": zh_articles_frontmatter
         }

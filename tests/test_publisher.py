@@ -127,6 +127,8 @@ async def test_write_daily_posts_happy_path(tmp_path, monkeypatch):
     assert en_content.startswith("---\n")
     assert en_content.endswith("---\n")
     en_data = yaml.safe_load(en_content.strip().strip("-").strip())
+    assert en_data["title"] == "2026-07-12"
+    assert en_data["date"] == "2026-07-12"
     assert en_data["daily_highlight"] == "Highlight RAG pipeline and token."
     assert len(en_data["articles"]) == 1
     assert en_data["articles"][0]["title"] == "New Agent RAG pipeline"
@@ -137,6 +139,8 @@ async def test_write_daily_posts_happy_path(tmp_path, monkeypatch):
     assert zh_content.startswith("---\n")
     assert zh_content.endswith("---\n")
     zh_data = yaml.safe_load(zh_content.strip().strip("-").strip())
+    assert zh_data["title"] == "2026-07-12"
+    assert zh_data["date"] == "2026-07-12"
     assert zh_data["daily_highlight"] == "高亮 RAG pipeline 和 token。"
     assert len(zh_data["articles"]) == 1
     assert zh_data["articles"][0]["title"] == "New Agent RAG pipeline"
