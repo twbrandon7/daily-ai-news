@@ -76,8 +76,11 @@ def get_url_hash(url: str) -> str:
     normalized = normalize_url(url)
     return hashlib.md5(normalized.encode('utf-8')).hexdigest()
 
-def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUTOFF_DATE) -> list[dict]:
+def resolve_urls_to_crawl(config_urls: list[str], dedup_store: dict[str, str] = None, cutoff_date: str = DEFAULT_CUTOFF_DATE) -> list[dict]:
     """Resolve a list of config URLs (RSS feeds) to a list of article dicts to crawl."""
+    if dedup_store is None:
+        dedup_store = {}
+    normalized_dedup = {normalize_url(u) for u in dedup_store.keys()}
     resolved = []
     for url in config_urls:
         url = url.strip()
@@ -121,9 +124,14 @@ def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUT
                     
                     if link:
                         link = urljoin(url, link)
+                        norm_link = normalize_url(link)
+                        if norm_link in normalized_dedup:
+                            print(f"  Skipping already recorded article: {link}")
+                            continue
                         pub_date_iso = parse_date_to_iso(pub_date)
                         if pub_date_iso and pub_date_iso < cutoff_date:
                             print(f"  Skipping article published before cutoff ({pub_date_iso} < {cutoff_date}): {link}")
+                            dedup_store[link] = "skipped"
                             continue
                         feed_articles.append({
                             "url": link,
@@ -158,9 +166,14 @@ def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUT
                             
                     if link:
                         link = urljoin(url, link)
+                        norm_link = normalize_url(link)
+                        if norm_link in normalized_dedup:
+                            print(f"  Skipping already recorded article: {link}")
+                            continue
                         pub_date_iso = parse_date_to_iso(pub_date)
                         if pub_date_iso and pub_date_iso < cutoff_date:
                             print(f"  Skipping article published before cutoff ({pub_date_iso} < {cutoff_date}): {link}")
+                            dedup_store[link] = "skipped"
                             continue
                         feed_articles.append({
                             "url": link,
@@ -170,10 +183,10 @@ def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUT
                             "feed_url": url
                         })
             if not feed_articles:
-                print(f"Error: No articles found in feed {url} after cutoff filter. Skipping.", file=sys.stderr)
+                print(f"Error: No new articles found in feed {url}. Skipping.", file=sys.stderr)
                 continue
                 
-            print(f"  Found {len(feed_articles)} articles in feed after cutoff filter.")
+            print(f"  Found {len(feed_articles)} new articles in feed.")
             resolved.extend(feed_articles)
         except Exception as e:
             print(f"Error accessing or parsing feed {url}: {e}. Skipping.", file=sys.stderr)
@@ -181,34 +194,45 @@ def resolve_urls_to_crawl(config_urls: list[str], cutoff_date: str = DEFAULT_CUT
 
 
 
-def load_deduplication_store(file_path: str) -> dict[str, set[str]]:
-    """Load existing URLs from a JSON file, returning a dict of feed_url -> set of article URLs."""
+def load_deduplication_store(file_path: str) -> dict[str, str]:
+    """Load deduplication store from JSON file, returning a dict of url -> status ('fetched' | 'skipped')."""
     if not os.path.exists(file_path):
         return {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict):
-            return {k: set(v) for k, v in data.items()}
+            if "articles" in data and isinstance(data["articles"], dict):
+                return {str(k): str(v) for k, v in data["articles"].items()}
+            else:
+                # Fallback for previous per-feed dict format
+                res = {}
+                for k, v in data.items():
+                    if isinstance(v, (list, set)):
+                        for url in v:
+                            res[str(url)] = "fetched"
+                return res
         elif isinstance(data, list):
-            return {"legacy": set(str(url) for url in data)}
+            # Fallback for legacy flat list format
+            return {str(url): "fetched" for url in data}
         else:
             print(f"Warning: Expected dict or list in deduplication store at {file_path}, got {type(data).__name__}", file=sys.stderr)
     except Exception as e:
         print(f"Warning: Failed to load deduplication store from {file_path}: {e}", file=sys.stderr)
     return {}
 
-def save_deduplication_store(file_path: str, store: dict[str, set[str]]):
-    """Save the updated URL store to a JSON file as a dict of feed_url -> sorted list of article URLs."""
+def save_deduplication_store(file_path: str, store: dict[str, str]):
+    """Save deduplication store to JSON file under {"articles": {"<url>": "status"}}."""
     temp_path = None
     try:
         dir_name = os.path.dirname(file_path)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
         temp_path = file_path + ".tmp"
-        serializable_store = {k: sorted(list(v)) for k, v in store.items()}
+        sorted_articles = {k: store[k] for k in sorted(store.keys())}
+        payload = {"articles": sorted_articles}
         with open(temp_path, "w", encoding="utf-8") as f:
-            json.dump(serializable_store, f, indent=2)
+            json.dump(payload, f, indent=2)
         os.replace(temp_path, file_path)
     except Exception as e:
         print(f"Warning: Failed to save deduplication store to {file_path}: {e}", file=sys.stderr)
@@ -383,8 +407,9 @@ async def run_crawl():
             json.dump([], f, indent=2)
         return []
 
-    # Resolve URLs (RSS feeds to articles)
-    articles_to_crawl = resolve_urls_to_crawl(urls, cutoff_date=cutoff_date)
+    dedup_store = load_deduplication_store(DEDUP_PATH)
+    articles_to_crawl = resolve_urls_to_crawl(urls, dedup_store=dedup_store, cutoff_date=cutoff_date)
+    save_deduplication_store(DEDUP_PATH, dedup_store)
 
     # Setup CrawlerRunConfig with PruningContentFilter to exclude headers, footers, sidebars
     run_config = CrawlerRunConfig(
@@ -393,8 +418,6 @@ async def run_crawl():
         ),
         cache_mode=CacheMode.BYPASS
     )
-    
-    dedup_store = load_deduplication_store(DEDUP_PATH)
     
     failures = []
     successes = []
@@ -408,13 +431,10 @@ async def run_crawl():
                 url = art["url"]
                 feed_url = art.get("feed_url", "direct")
                 
-                # Check feed-specific dedup set and legacy set
-                feed_dedup = dedup_store.get(feed_url, set())
-                legacy_dedup = dedup_store.get("legacy", set())
-                
                 normalized_url = normalize_url(url)
-                if normalized_url in {normalize_url(u) for u in feed_dedup} or normalized_url in {normalize_url(u) for u in legacy_dedup}:
-                    print(f"Skipping already crawled URL: {url}")
+                normalized_dedup = {normalize_url(u) for u in dedup_store.keys()}
+                if normalized_url in normalized_dedup:
+                    print(f"Skipping already recorded URL: {url}")
                     continue
                     
                 url, parsed_data, error_msg = await crawl_blog(crawler, url, run_config)
@@ -431,6 +451,13 @@ async def run_crawl():
                         if match and parsed_data["publication_date"] == datetime.date.today().isoformat():
                             parsed_data["publication_date"] = match.group(0)
                             
+                    # Double check cutoff date after crawl
+                    crawled_date = parse_date_to_iso(parsed_data.get("publication_date"))
+                    if crawled_date and crawled_date < cutoff_date:
+                        print(f"Skipping crawled article published before cutoff ({crawled_date} < {cutoff_date}): {url}")
+                        dedup_store[url] = "skipped"
+                        continue
+                        
                     parsed_data["feed_url"] = feed_url
 
                     successes.append(parsed_data)
@@ -689,10 +716,7 @@ async def run_publish():
             json.dump(articles, f, indent=2)
         print(f"Successfully saved {len(articles)} articles to {PARSED_ARTICLES_PATH}")
         for item in articles:
-            feed_url = item.get("feed_url", "direct")
-            if feed_url not in dedup_store:
-                dedup_store[feed_url] = set()
-            dedup_store[feed_url].add(item['url'])
+            dedup_store[item['url']] = "fetched"
     except Exception as e:
         print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
     finally:

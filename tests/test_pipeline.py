@@ -14,6 +14,7 @@ def mock_requests_get(monkeypatch):
               <item>
                 <title>Mock Article for {url}</title>
                 <link>{url}</link>
+                <pubDate>Sun, 25 Jul 2026 12:00:00 GMT</pubDate>
               </item>
             </channel>
             </rss>
@@ -48,13 +49,13 @@ def test_extract_article_info_basic():
         metadata={
             "title": "Test Title",
             "author": "John Doe",
-            "article:published_time": "2026-07-11T12:00:00Z"
+            "article:published_time": "2026-07-25T12:00:00Z"
         }
     )
     info = extract_article_info("https://example.com", mock_result)
     assert info["title"] == "Test Title"
     assert info["author"] == "John Doe"
-    assert info["publication_date"] == "2026-07-11"
+    assert info["publication_date"] == "2026-07-25"
     assert info["body"] == "This is the article body"
     assert info["url"] == "https://example.com"
 
@@ -163,16 +164,21 @@ def test_load_deduplication_store_not_dict_or_list(tmp_path):
 def test_load_deduplication_store_valid(tmp_path):
     from src.pipeline import load_deduplication_store
     path = tmp_path / "valid.json"
-    path.write_text('["https://a.com", "https://b.com"]')
-    assert load_deduplication_store(str(path)) == {"legacy": {"https://a.com", "https://b.com"}}
+    path.write_text('{"articles": {"https://a.com": "fetched", "https://b.com": "skipped"}}')
+    assert load_deduplication_store(str(path)) == {"https://a.com": "fetched", "https://b.com": "skipped"}
 
 def test_save_deduplication_store(tmp_path):
     from src.pipeline import save_deduplication_store
     path = tmp_path / "output.json"
-    save_deduplication_store(str(path), {"feed1": {"https://a.com", "https://b.com"}})
+    save_deduplication_store(str(path), {"https://a.com": "fetched", "https://b.com": "skipped"})
     assert path.exists()
     data = json.loads(path.read_text())
-    assert data == {"feed1": ["https://a.com", "https://b.com"]}
+    assert data == {
+        "articles": {
+            "https://a.com": "fetched",
+            "https://b.com": "skipped"
+        }
+    }
 
 @pytest.mark.asyncio
 async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys):
@@ -205,7 +211,7 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
         success=True,
         url="https://new-url.com",
         markdown="New article content",
-        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-25T12:00:00Z"}
     )
     
     class MockAsyncWebCrawlerContext:
@@ -242,7 +248,7 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     
     # Check that old-url.com was skipped and new-url.com was crawled
     captured = capsys.readouterr()
-    assert "Skipping already crawled URL: https://old-url.com" in captured.out
+    assert "Skipping already recorded article: https://old-url.com" in captured.out
     assert "Successfully crawled: https://new-url.com" in captured.out
     
     # Verify that mock_crawler.arun was only called for new-url.com, not old-url.com
@@ -252,8 +258,10 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     # Verify fetched_posts.json has both old and new URLs
     updated_fetched = json.loads(fetched_posts.read_text())
     assert updated_fetched == {
-        "legacy": ["https://old-url.com"],
-        "https://new-url.com": ["https://new-url.com"]
+        "articles": {
+            "https://new-url.com": "fetched",
+            "https://old-url.com": "fetched"
+        }
     }
     
     # Verify parsed_articles.json has only the new article
@@ -314,7 +322,7 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
         success=True,
         url="https://new-url.com",
         markdown="New article content",
-        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-25T12:00:00Z"}
     )
     
     class MockAsyncWebCrawlerContext:
@@ -360,7 +368,7 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
     
     # Verify that crawled URL was NOT added to fetched_posts.json because of the save failure
     updated_fetched = json.loads(fetched_posts.read_text())
-    assert updated_fetched == {"legacy": []}
+    assert updated_fetched == {"articles": {}}
 
 
 
@@ -389,7 +397,7 @@ async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeyp
             success=True,
             url=url,
             markdown=f"body of {url}",
-            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-25T00:00:00Z"},
         )
 
     call_count = 0
@@ -460,7 +468,7 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
             success=True,
             url=url,
             markdown=f"body of {url}",
-            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+            metadata={"title": f"Title {url}", "author": "A", "article:published_time": "2026-07-25T00:00:00Z"},
         )
 
     class MockCrawler:
@@ -527,7 +535,7 @@ async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
             success=True,
             url=url,
             markdown="body",
-            metadata={"title": "Title", "author": "A", "article:published_time": "2026-07-11T00:00:00Z"},
+            metadata={"title": "Title", "author": "A", "article:published_time": "2026-07-25T00:00:00Z"},
         )
 
     class MockCrawler:
@@ -602,7 +610,7 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
         success=True,
         url="https://new-url.com",
         markdown="New article content",
-        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-25T12:00:00Z"}
     )
 
     class MockAsyncWebCrawlerContext:
@@ -670,7 +678,7 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
 
     # Verify that crawled URL was added to fetched_posts.json
     updated_fetched = json.loads(fetched_posts.read_text())
-    assert "https://new-url.com" in updated_fetched
+    assert updated_fetched == {"articles": {"https://new-url.com": "fetched"}}
 
 
 def test_resolve_urls_to_crawl_rss(monkeypatch):
@@ -867,11 +875,13 @@ def test_resolve_urls_to_crawl_cutoff_filter(monkeypatch):
     monkeypatch.setattr("requests.get", lambda *a, **kw: MockResponse())
     
     # Filter with cutoff_date = "2026-07-24" (allows 2026-07-24 and 2026-07-25)
-    res = resolve_urls_to_crawl(["https://example.com/feed"], cutoff_date="2026-07-24")
+    dedup_store = {}
+    res = resolve_urls_to_crawl(["https://example.com/feed"], dedup_store=dedup_store, cutoff_date="2026-07-24")
     assert len(res) == 2
     urls = [r["url"] for r in res]
     assert "https://example.com/new" in urls
     assert "https://example.com/cutoff" in urls
     assert "https://example.com/old" not in urls
+    assert dedup_store.get("https://example.com/old") == "skipped"
 
 
