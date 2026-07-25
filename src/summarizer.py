@@ -119,7 +119,7 @@ async def summarize_article(url: str, body: str, title: str) -> dict | None:
 
     try:
         agent = LlmAgent(
-            model="gemini-2.0-flash",
+            model="gemini-3.5-flash-lite",
             name="summarizer",
             instruction=SUMMARIZE_PROMPT,
         )

@@ -163,7 +163,7 @@ async def translate_summary(url: str, summary: dict) -> dict | None:
 
     try:
         agent = LlmAgent(
-            model="gemini-2.0-flash",
+            model="gemini-3.5-flash-lite",
             name="translator",
             instruction=TRANSLATE_PROMPT,
         )
