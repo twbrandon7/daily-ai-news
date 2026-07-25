@@ -546,3 +546,106 @@ async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
     await pipeline.main()
     assert (tmp_path / "data/parsed_articles.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_stages_individually(tmp_path, monkeypatch):
+    import os
+    import json
+    import yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+
+    # Set required env var
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+
+    # Create directory structure in temp path
+    os.makedirs(tmp_path / "data")
+
+    # Write blogs.yaml
+    blogs_yaml = tmp_path / "data/blogs.yaml"
+    blogs_yaml.write_text(yaml.dump({"blogs": ["https://new-url.com"]}))
+
+    # Write fetched_posts.json
+    fetched_posts = tmp_path / "data/fetched_posts.json"
+    fetched_posts.write_text(json.dumps([]))
+
+    # Change working directory to tmp_path
+    monkeypatch.chdir(tmp_path)
+
+    # Mock AsyncWebCrawler
+    mock_crawler = AsyncMock()
+    mock_crawler.arun.return_value = MockCrawlResult(
+        success=True,
+        url="https://new-url.com",
+        markdown="New article content",
+        metadata={"title": "New Title", "author": "New Author", "article:published_time": "2026-07-11T12:00:00Z"}
+    )
+
+    class MockAsyncWebCrawlerContext:
+        async def __aenter__(self):
+            return mock_crawler
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockAsyncWebCrawlerContext)
+
+    # Mock summarize_article to return a valid summary without making real API calls
+    mock_summary = {
+        "tldr": "Test summary",
+        "problem_why": "Test problem",
+        "solution_how": "Test solution",
+        "insights_tradeoffs": {"pros": ["pro1"], "cons": ["con1"]},
+        "tags_action": ["tag1"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_summary))
+    mock_translation = {
+        "tldr": "測試摘要",
+        "problem_why": "測試問題",
+        "solution_how": "測試方案",
+        "insights_tradeoffs": {"pros": ["優點"], "cons": ["缺點"]},
+        "tags_action": ["標籤"],
+        "rating": 4,
+    }
+    monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
+
+    # Run crawl stage
+    await pipeline.main(["crawl"])
+    crawled_path = tmp_path / "data/crawled_articles.json"
+    assert crawled_path.exists()
+    crawled = json.loads(crawled_path.read_text())
+    assert len(crawled) == 1
+    assert crawled[0]["url"] == "https://new-url.com"
+    assert "summary" not in crawled[0]
+
+    # Run summarize stage
+    await pipeline.main(["summarize"])
+    summarized_path = tmp_path / "data/summarized_articles.json"
+    assert summarized_path.exists()
+    summarized = json.loads(summarized_path.read_text())
+    assert len(summarized) == 1
+    assert summarized[0]["summary"] == mock_summary
+    assert "summary_zh_tw" not in summarized[0]
+
+    # Run translate stage
+    await pipeline.main(["translate"])
+    translated_path = tmp_path / "data/translated_articles.json"
+    assert translated_path.exists()
+    translated = json.loads(translated_path.read_text())
+    assert len(translated) == 1
+    assert translated[0]["summary_zh_tw"] == mock_translation
+
+    # Run publish stage
+    await pipeline.main(["publish"])
+    parsed_path = tmp_path / "data/parsed_articles.json"
+    assert parsed_path.exists()
+    parsed = json.loads(parsed_path.read_text())
+    assert len(parsed) == 1
+    assert parsed[0]["url"] == "https://new-url.com"
+
+    # Verify that crawled URL was added to fetched_posts.json
+    updated_fetched = json.loads(fetched_posts.read_text())
+    assert "https://new-url.com" in updated_fetched
+

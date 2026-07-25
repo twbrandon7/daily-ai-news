@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import argparse
 import yaml
 from bs4 import BeautifulSoup
 
@@ -204,8 +205,14 @@ async def crawl_blog(crawler, url, run_config):
         log_error(url, error_msg)
         return url, None, error_msg
 
-async def main():
-    # Check for required environment variable before any crawling
+CRAWLED_ARTICLES_PATH = "data/crawled_articles.json"
+SUMMARIZED_ARTICLES_PATH = "data/summarized_articles.json"
+TRANSLATED_ARTICLES_PATH = "data/translated_articles.json"
+PARSED_ARTICLES_PATH = "data/parsed_articles.json"
+DEDUP_PATH = "data/fetched_posts.json"
+BLOGS_CONFIG_PATH = "data/blogs.yaml"
+
+def validate_google_api_key():
     if not (os.environ.get("GOOGLE_API_KEY") or "").strip():
         print(
             "Error: GOOGLE_API_KEY environment variable is not set. "
@@ -214,11 +221,10 @@ async def main():
         )
         sys.exit(1)
 
+async def run_crawl():
     # Load configuration
-    config_path = "data/blogs.yaml"
-    blog_config = {}
     try:
-        with open(config_path, "r") as f:
+        with open(BLOGS_CONFIG_PATH, "r") as f:
             blog_config = yaml.safe_load(f) or {}
     except OSError as e:
         print(f"Error reading configuration file: {e}", file=sys.stderr)
@@ -226,16 +232,15 @@ async def main():
     except Exception as e:
         print(f"Error parsing YAML: {e}", file=sys.stderr)
         sys.exit(1)
-        
-    if not isinstance(blog_config, dict):
-        print("Error: Configuration is not a valid dictionary", file=sys.stderr)
-        sys.exit(1)
             
     urls = blog_config.get("blogs", [])
     if not urls:
         print("Warning: No URLs found in data/blogs.yaml")
-        sys.exit(0)
-        
+        os.makedirs("data", exist_ok=True)
+        with open(CRAWLED_ARTICLES_PATH, "w") as f:
+            json.dump([], f, indent=2)
+        return []
+
     # Setup CrawlerRunConfig with PruningContentFilter to exclude headers, footers, sidebars
     run_config = CrawlerRunConfig(
         markdown_generator=DefaultMarkdownGenerator(
@@ -244,8 +249,7 @@ async def main():
         cache_mode=CacheMode.BYPASS
     )
     
-    dedup_path = "data/fetched_posts.json"
-    dedup_store = load_deduplication_store(dedup_path)
+    dedup_store = load_deduplication_store(DEDUP_PATH)
     dedup_set_normalized = {normalize_url(u) for u in dedup_store}
     
     failures = []
@@ -263,23 +267,13 @@ async def main():
                 if error_msg:
                     failures.append((url, error_msg))
                 else:
-                    summary = await summarize_article(url, parsed_data['body'], parsed_data['title'])
-                    if summary is None:
-                        failures.append((url, "summarization failed"))
-                    else:
-                        parsed_data['summary'] = summary
-                        translated = await translate_summary(url, summary)
-                        if translated is None:
-                            failures.append((url, "translation failed"))
-                        else:
-                            parsed_data['summary_zh_tw'] = translated
-                            successes.append(parsed_data)
-                            print(f"Successfully crawled: {url}")
-                            print(f"  Title: {parsed_data['title']}")
-                            print(f"  Author: {parsed_data['author']}")
-                            print(f"  Date: {parsed_data['publication_date']}")
-                            print(f"  Body length: {len(parsed_data['body'])} characters")
-                            print("-" * 40)
+                    successes.append(parsed_data)
+                    print(f"Successfully crawled: {url}")
+                    print(f"  Title: {parsed_data['title']}")
+                    print(f"  Author: {parsed_data['author']}")
+                    print(f"  Date: {parsed_data['publication_date']}")
+                    print(f"  Body length: {len(parsed_data['body'])} characters")
+                    print("-" * 40)
                     
         # Final reporting
         print(f"\nCrawl execution summary:")
@@ -287,38 +281,192 @@ async def main():
         print(f"Successful crawls: {len(successes)}")
         print(f"Failed crawls: {len(failures)}")
         
-        # Publish daily posts if there are successes
-        if successes:
-            today_str = datetime.date.today().isoformat()
-            try:
-                pub_success = await write_daily_posts(today_str, successes)
-                if not pub_success:
-                    print("Error: Publishing daily posts failed.", file=sys.stderr)
-                    sys.exit(1)
-            except Exception as e:
-                # write_daily_posts already logs structured JSON to stderr with stage: "publish"
-                print(f"Error: Publishing failed: {e}", file=sys.stderr)
-                sys.exit(1)
+        # Save to crawled_articles.json
+        os.makedirs("data", exist_ok=True)
+        with open(CRAWLED_ARTICLES_PATH, "w") as f:
+            json.dump(successes, f, indent=2)
+        print(f"Successfully saved {len(successes)} crawled articles to {CRAWLED_ARTICLES_PATH}")
+        
+        if failures:
+            print("\nFailed URLs and errors:")
+            for url, err in failures:
+                print(f" - {url}: {err}")
+                
+        return successes
+    except Exception as e:
+        print(f"Error during crawl: {e}", file=sys.stderr)
+        sys.exit(1)
 
-            # Save parsed articles to data/parsed_articles.json
-            output_dir = "data"
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, "parsed_articles.json")
-            try:
-                with open(output_path, "w") as f:
-                    json.dump(successes, f, indent=2)
-                print(f"Successfully saved {len(successes)} articles to {output_path}")
-                for item in successes:
-                    dedup_store.add(item['url'])
-            except Exception as e:
-                print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
-    finally:
-        save_deduplication_store(dedup_path, dedup_store)
+async def run_summarize():
+    validate_google_api_key()
+    
+    if not os.path.exists(CRAWLED_ARTICLES_PATH):
+        print(f"Error: {CRAWLED_ARTICLES_PATH} not found. Run crawl stage first.", file=sys.stderr)
+        sys.exit(1)
+        
+    try:
+        with open(CRAWLED_ARTICLES_PATH, "r") as f:
+            articles = json.load(f)
+    except Exception as e:
+        print(f"Error reading {CRAWLED_ARTICLES_PATH}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Starting summarization for {len(articles)} articles...")
+    
+    successes = []
+    failures = []
+    
+    for art in articles:
+        url = art['url']
+        summary = await summarize_article(url, art['body'], art['title'])
+        if summary is None:
+            failures.append((url, "summarization failed"))
+        else:
+            art['summary'] = summary
+            successes.append(art)
+            print(f"Successfully summarized: {url}")
             
+    # Save to summarized_articles.json
+    os.makedirs("data", exist_ok=True)
+    with open(SUMMARIZED_ARTICLES_PATH, "w") as f:
+        json.dump(successes, f, indent=2)
+    print(f"Successfully saved {len(successes)} summarized articles to {SUMMARIZED_ARTICLES_PATH}")
+    
     if failures:
-        print("\nFailed URLs and errors:")
+        print("\nFailed summarizations:")
         for url, err in failures:
             print(f" - {url}: {err}")
+            
+    return successes
+
+async def run_translate():
+    validate_google_api_key()
+    
+    if not os.path.exists(SUMMARIZED_ARTICLES_PATH):
+        print(f"Error: {SUMMARIZED_ARTICLES_PATH} not found. Run summarize stage first.", file=sys.stderr)
+        sys.exit(1)
+        
+    try:
+        with open(SUMMARIZED_ARTICLES_PATH, "r") as f:
+            articles = json.load(f)
+    except Exception as e:
+        print(f"Error reading {SUMMARIZED_ARTICLES_PATH}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Starting translation for {len(articles)} articles...")
+    
+    successes = []
+    failures = []
+    
+    for art in articles:
+        url = art['url']
+        summary = art.get('summary')
+        if not summary:
+            failures.append((url, "missing summary"))
+            continue
+            
+        translated = await translate_summary(url, summary)
+        if translated is None:
+            failures.append((url, "translation failed"))
+        else:
+            art['summary_zh_tw'] = translated
+            successes.append(art)
+            print(f"Successfully translated: {url}")
+            
+    # Save to translated_articles.json
+    os.makedirs("data", exist_ok=True)
+    with open(TRANSLATED_ARTICLES_PATH, "w") as f:
+        json.dump(successes, f, indent=2)
+    print(f"Successfully saved {len(successes)} translated articles to {TRANSLATED_ARTICLES_PATH}")
+    
+    if failures:
+        print("\nFailed translations:")
+        for url, err in failures:
+            print(f" - {url}: {err}")
+            
+    return successes
+
+async def run_publish():
+    if not os.path.exists(TRANSLATED_ARTICLES_PATH):
+        print(f"Error: {TRANSLATED_ARTICLES_PATH} not found. Run translate stage first.", file=sys.stderr)
+        sys.exit(1)
+        
+    try:
+        with open(TRANSLATED_ARTICLES_PATH, "r") as f:
+            articles = json.load(f)
+    except Exception as e:
+        print(f"Error reading {TRANSLATED_ARTICLES_PATH}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not articles:
+        print("No articles to publish.")
+        # Ensure we write empty parsed_articles.json
+        os.makedirs("data", exist_ok=True)
+        with open(PARSED_ARTICLES_PATH, "w") as f:
+            json.dump([], f, indent=2)
+        return
+
+    print(f"Starting publishing for {len(articles)} articles...")
+    
+    # Check for GOOGLE_API_KEY as publishing generates and translates highlights
+    validate_google_api_key()
+    
+    today_str = datetime.date.today().isoformat()
+    try:
+        pub_success = await write_daily_posts(today_str, articles)
+        if not pub_success:
+            print("Error: Publishing daily posts failed.", file=sys.stderr)
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error: Publishing failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Load dedup store to append new URLs
+    dedup_store = load_deduplication_store(DEDUP_PATH)
+    
+    try:
+        # Save parsed articles to data/parsed_articles.json
+        with open(PARSED_ARTICLES_PATH, "w") as f:
+            json.dump(articles, f, indent=2)
+        print(f"Successfully saved {len(articles)} articles to {PARSED_ARTICLES_PATH}")
+        for item in articles:
+            dedup_store.add(item['url'])
+    except Exception as e:
+        print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
+    finally:
+        save_deduplication_store(DEDUP_PATH, dedup_store)
+
+async def main(args=None):
+    if args is None:
+        if any("pytest" in arg or "py.test" in arg for arg in sys.argv) or "pytest" in sys.modules:
+            args = ["all"]
+        else:
+            args = sys.argv[1:]
+
+    parser = argparse.ArgumentParser(description="Daily AI News Pipeline")
+    parser.add_argument(
+        "stage",
+        nargs="?",
+        choices=["crawl", "summarize", "translate", "publish", "all"],
+        default="all",
+        help="Stage of the pipeline to run (default: all)"
+    )
+    parsed_args = parser.parse_args(args)
+    stage = parsed_args.stage
+
+    if stage == "crawl":
+        await run_crawl()
+    elif stage == "summarize":
+        await run_summarize()
+    elif stage == "translate":
+        await run_translate()
+    elif stage == "publish":
+        await run_publish()
+    elif stage == "all":
+        await run_crawl()
+        await run_summarize()
+        await run_translate()
+        await run_publish()
 
 if __name__ == "__main__":
     asyncio.run(main())
