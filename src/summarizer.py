@@ -8,15 +8,13 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 
 class InsightsTradeoffs(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     pros: list[str] = Field(description="Key advantages or positive aspects.")
     cons: list[str] = Field(description="Key drawbacks, limitations, or negative aspects.")
 
 class ArticleSummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     tldr: str = Field(description="One-sentence summary of the article.")
     problem_why: str = Field(description="What problem does this article address and why it matters.")
     solution_how: str = Field(description="How the article solves the problem or what approach is described.")
