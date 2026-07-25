@@ -4,25 +4,26 @@ type: 'feature'
 created: '2026-07-25T19:50:00Z'
 status: 'done'
 baseline_commit: '405bb24e7be17c8799fd7c24de7c3a2fc5c13cc4'
-review_loop_iteration: 3
+review_loop_iteration: 4
 context: []
 ---
 
 ## Intent
 
-**Problem:** The crawler only crawls exact configured URLs without finding new content from RSS feeds. The pipeline concatenates all crawled, summarized, and translated articles into single monolithic JSON files, which is fragile and does not scale well. In addition, tracking fetched and skipped articles must be recorded in `data/fetched_posts.json` with their statuses ("fetched" or "skipped"), and historical articles published before a cutoff date should be marked as skipped.
+**Problem:** The crawler only crawls exact configured URLs without finding new content from RSS feeds. The pipeline concatenates all crawled, summarized, and translated articles into single monolithic JSON files, which is fragile and does not scale well. Legacy monolithic files and fallback logic are no longer needed and should be completely removed.
 
-**Approach:** Modify the pipeline to parse RSS feed URLs from config, fetch new article links from RSS, crawl them, filter out articles published before the cutoff date (default `2026-07-24`), and process each article in standalone files through crawl, summarize, and translate stages. Deduplication and skip tracking are recorded in `data/fetched_posts.json` under `{"articles": {"<url>": "fetched" | "skipped"}}`.
+**Approach:** Modify the pipeline to parse RSS feed URLs from config, fetch new article links from RSS, crawl them, filter out articles published before the cutoff date (default `2026-07-24`), and process each article exclusively via standalone files under `data/crawled/`, `data/summarized/`, and `data/translated/`. Remove legacy monolithic files (`crawled_articles.json`, `summarized_articles.json`, `translated_articles.json`) and legacy fallback parsing.
 
 ## Boundaries & Constraints
 
 **Always:**
 - Use `BeautifulSoup` to parse RSS and Atom XML feeds.
 - Save standalone files under `data/crawled/`, `data/summarized/`, and `data/translated/` named with the MD5 hash of the normalized URL (e.g. `{url_hash}.json`).
-- Ensure all intermediate stages work with standalone files.
+- Ensure all intermediate stages work exclusively with standalone files.
 - Retain `data/fetched_posts.json` as the source of truth for deduplication, using structure `{"articles": {"<url>": "fetched" | "skipped"}}`.
 - Log an error and skip the feed if feed XML cannot be parsed (no fallback to HTML crawling).
 - Filter out and record as "skipped" any article published before the cutoff date (`2026-07-24` by default, or as configured in `data/blogs.yaml`).
+- Completely remove legacy monolithic files and legacy backwards-compatibility fallbacks.
 
 **Ask First:**
 - Modifying the keys or format of `data/blogs.yaml`.

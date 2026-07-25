@@ -370,9 +370,6 @@ async def crawl_blog(crawler, url, run_config):
         log_error(url, error_msg)
         return url, None, error_msg
 
-CRAWLED_ARTICLES_PATH = "data/crawled_articles.json"
-SUMMARIZED_ARTICLES_PATH = "data/summarized_articles.json"
-TRANSLATED_ARTICLES_PATH = "data/translated_articles.json"
 PARSED_ARTICLES_PATH = "data/parsed_articles.json"
 DEDUP_PATH = "data/fetched_posts.json"
 BLOGS_CONFIG_PATH = "data/blogs.yaml"
@@ -403,8 +400,6 @@ async def run_crawl():
     if not urls:
         print("Warning: No URLs found in data/blogs.yaml")
         os.makedirs("data/crawled", exist_ok=True)
-        with open(CRAWLED_ARTICLES_PATH, "w") as f:
-            json.dump([], f, indent=2)
         return []
 
     dedup_store = load_deduplication_store(DEDUP_PATH)
@@ -480,10 +475,7 @@ async def run_crawl():
         print(f"Successful crawls: {len(successes)}")
         print(f"Failed crawls: {len(failures)}")
         
-        # Save legacy file
-        with open(CRAWLED_ARTICLES_PATH, "w") as f:
-            json.dump(successes, f, indent=2)
-        print(f"Successfully saved crawled articles to standalone files and {CRAWLED_ARTICLES_PATH}")
+        print(f"Successfully saved crawled articles to standalone files under data/crawled/")
         
         if failures:
             print("\nFailed URLs and errors:")
@@ -505,28 +497,16 @@ async def run_summarize():
     crawled_files = [os.path.join(crawled_dir, f) for f in os.listdir(crawled_dir) if f.endswith(".json")]
     
     articles = []
-    if crawled_files:
-        for file_path in crawled_files:
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    articles.append(json.load(f))
-            except Exception as e:
-                print(f"Error reading {file_path}: {e}", file=sys.stderr)
-    elif os.path.exists(CRAWLED_ARTICLES_PATH):
+    for file_path in crawled_files:
         try:
-            with open(CRAWLED_ARTICLES_PATH, "r") as f:
-                articles = json.load(f)
-            # Populate standalone files
-            for art in articles:
-                url_hash = get_url_hash(art["url"])
-                with open(os.path.join(crawled_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
-                    json.dump(art, f_out, indent=2)
+            with open(file_path, "r", encoding="utf-8") as f:
+                articles.append(json.load(f))
         except Exception as e:
-            print(f"Error reading {CRAWLED_ARTICLES_PATH}: {e}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        print(f"Error: No crawled articles found.", file=sys.stderr)
-        sys.exit(1)
+            print(f"Error reading {file_path}: {e}", file=sys.stderr)
+
+    if not articles:
+        print("No crawled articles found.")
+        return []
 
     print(f"Starting summarization for {len(articles)} articles...")
     
@@ -560,10 +540,7 @@ async def run_summarize():
                 json.dump(art, f, indent=2)
             print(f"Successfully summarized: {url}")
             
-    # Save legacy file
-    with open(SUMMARIZED_ARTICLES_PATH, "w") as f:
-        json.dump(successes, f, indent=2)
-    print(f"Successfully saved summarized articles to standalone files and {SUMMARIZED_ARTICLES_PATH}")
+    print(f"Successfully saved summarized articles to standalone files under data/summarized/")
     
     if failures:
         print("\nFailed summarizations:")
@@ -582,28 +559,16 @@ async def run_translate():
     summarized_files = [os.path.join(summarized_dir, f) for f in os.listdir(summarized_dir) if f.endswith(".json")]
     
     articles = []
-    if summarized_files:
-        for file_path in summarized_files:
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    articles.append(json.load(f))
-            except Exception as e:
-                print(f"Error reading {file_path}: {e}", file=sys.stderr)
-    elif os.path.exists(SUMMARIZED_ARTICLES_PATH):
+    for file_path in summarized_files:
         try:
-            with open(SUMMARIZED_ARTICLES_PATH, "r") as f:
-                articles = json.load(f)
-            # Populate standalone files
-            for art in articles:
-                url_hash = get_url_hash(art["url"])
-                with open(os.path.join(summarized_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
-                    json.dump(art, f_out, indent=2)
+            with open(file_path, "r", encoding="utf-8") as f:
+                articles.append(json.load(f))
         except Exception as e:
-            print(f"Error reading {SUMMARIZED_ARTICLES_PATH}: {e}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        print(f"Error: No summarized articles found.", file=sys.stderr)
-        sys.exit(1)
+            print(f"Error reading {file_path}: {e}", file=sys.stderr)
+
+    if not articles:
+        print("No summarized articles found.")
+        return []
 
     print(f"Starting translation for {len(articles)} articles...")
     
@@ -642,10 +607,7 @@ async def run_translate():
                 json.dump(art, f, indent=2)
             print(f"Successfully translated: {url}")
             
-    # Save legacy file
-    with open(TRANSLATED_ARTICLES_PATH, "w") as f:
-        json.dump(successes, f, indent=2)
-    print(f"Successfully saved translated articles to standalone files and {TRANSLATED_ARTICLES_PATH}")
+    print(f"Successfully saved translated articles to standalone files under data/translated/")
     
     if failures:
         print("\nFailed translations:")
@@ -661,28 +623,12 @@ async def run_publish():
         translated_files = [os.path.join(translated_dir, f) for f in os.listdir(translated_dir) if f.endswith(".json")]
         
     articles = []
-    if translated_files:
-        for file_path in translated_files:
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    articles.append(json.load(f))
-            except Exception as e:
-                print(f"Error reading {file_path}: {e}", file=sys.stderr)
-    elif os.path.exists(TRANSLATED_ARTICLES_PATH):
+    for file_path in translated_files:
         try:
-            with open(TRANSLATED_ARTICLES_PATH, "r") as f:
-                articles = json.load(f)
-            # Populate standalone files
-            for art in articles:
-                url_hash = get_url_hash(art["url"])
-                with open(os.path.join(translated_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
-                    json.dump(art, f_out, indent=2)
+            with open(file_path, "r", encoding="utf-8") as f:
+                articles.append(json.load(f))
         except Exception as e:
-            print(f"Error reading {TRANSLATED_ARTICLES_PATH}: {e}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        print(f"Error: No translated articles found.", file=sys.stderr)
-        sys.exit(1)
+            print(f"Error reading {file_path}: {e}", file=sys.stderr)
 
     if not articles:
         print("No articles to publish.")

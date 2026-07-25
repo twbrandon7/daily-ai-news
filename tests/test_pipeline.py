@@ -642,31 +642,30 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
     monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
 
+    url_hash = pipeline.get_url_hash("https://new-url.com")
+
     # Run crawl stage
     await pipeline.main(["crawl"])
-    crawled_path = tmp_path / "data/crawled_articles.json"
+    crawled_path = tmp_path / f"data/crawled/{url_hash}.json"
     assert crawled_path.exists()
     crawled = json.loads(crawled_path.read_text())
-    assert len(crawled) == 1
-    assert crawled[0]["url"] == "https://new-url.com"
-    assert "summary" not in crawled[0]
+    assert crawled["url"] == "https://new-url.com"
+    assert "summary" not in crawled
 
     # Run summarize stage
     await pipeline.main(["summarize"])
-    summarized_path = tmp_path / "data/summarized_articles.json"
+    summarized_path = tmp_path / f"data/summarized/{url_hash}.json"
     assert summarized_path.exists()
     summarized = json.loads(summarized_path.read_text())
-    assert len(summarized) == 1
-    assert summarized[0]["summary"] == mock_summary
-    assert "summary_zh_tw" not in summarized[0]
+    assert summarized["summary"] == mock_summary
+    assert "summary_zh_tw" not in summarized
 
     # Run translate stage
     await pipeline.main(["translate"])
-    translated_path = tmp_path / "data/translated_articles.json"
+    translated_path = tmp_path / f"data/translated/{url_hash}.json"
     assert translated_path.exists()
     translated = json.loads(translated_path.read_text())
-    assert len(translated) == 1
-    assert translated[0]["summary_zh_tw"] == mock_translation
+    assert translated["summary_zh_tw"] == mock_translation
 
     # Run publish stage
     await pipeline.main(["publish"])
