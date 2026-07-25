@@ -649,3 +649,153 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
     updated_fetched = json.loads(fetched_posts.read_text())
     assert "https://new-url.com" in updated_fetched
 
+
+def test_resolve_urls_to_crawl_rss(monkeypatch):
+    from src.pipeline import resolve_urls_to_crawl
+    
+    xml_content = """<?xml version="1.0" encoding="UTF-8" ?>
+    <rss version="2.0">
+    <channel>
+      <title>Test RSS</title>
+      <link>https://example.com</link>
+      <item>
+        <title>Article 1</title>
+        <link>https://example.com/art1</link>
+        <pubDate>Sun, 25 Jul 2026 12:00:00 GMT</pubDate>
+        <author>Author A</author>
+      </item>
+      <item>
+        <title>Article 2</title>
+        <link>https://example.com/art2</link>
+        <dc:creator>Author B</dc:creator>
+      </item>
+    </channel>
+    </rss>
+    """
+    
+    class MockResponse:
+        def __init__(self, content):
+            self.content = content
+        def raise_for_status(self):
+            pass
+            
+    def mock_get(url, *args, **kwargs):
+        return MockResponse(xml_content.encode('utf-8'))
+        
+    monkeypatch.setattr("requests.get", mock_get)
+    
+    res = resolve_urls_to_crawl(["https://example.com/rss"])
+    assert len(res) == 2
+    assert res[0]["url"] == "https://example.com/art1"
+    assert res[0]["title"] == "Article 1"
+    assert res[0]["pub_date"] == "Sun, 25 Jul 2026 12:00:00 GMT"
+    assert res[0]["author"] == "Author A"
+    
+    assert res[1]["url"] == "https://example.com/art2"
+    assert res[1]["title"] == "Article 2"
+    assert res[1]["author"] == "Author B"
+
+def test_resolve_urls_to_crawl_atom(monkeypatch):
+    from src.pipeline import resolve_urls_to_crawl
+    
+    xml_content = """<?xml version="1.0" encoding="utf-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <title>Test Atom</title>
+      <entry>
+        <title>Atom Art 1</title>
+        <link href="https://example.com/atom1" />
+        <published>2026-07-25T12:00:00Z</published>
+        <author>
+          <name>Author C</name>
+        </author>
+      </entry>
+    </feed>
+    """
+    
+    class MockResponse:
+        def __init__(self, content):
+            self.content = content
+        def raise_for_status(self):
+            pass
+            
+    def mock_get(url, *args, **kwargs):
+        return MockResponse(xml_content.encode('utf-8'))
+        
+    monkeypatch.setattr("requests.get", mock_get)
+    
+    res = resolve_urls_to_crawl(["https://example.com/atom"])
+    assert len(res) == 1
+    assert res[0]["url"] == "https://example.com/atom1"
+    assert res[0]["title"] == "Atom Art 1"
+    assert res[0]["pub_date"] == "2026-07-25T12:00:00Z"
+    assert res[0]["author"] == "Author C"
+
+@pytest.mark.asyncio
+async def test_pipeline_standalone_files_creation(tmp_path, monkeypatch):
+    import os
+    import json
+    import yaml
+    from src import pipeline
+    from unittest.mock import AsyncMock
+    
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.chdir(tmp_path)
+    os.makedirs(tmp_path / "data")
+    
+    # Write blogs.yaml
+    (tmp_path / "data/blogs.yaml").write_text(yaml.dump({"blogs": ["https://some-url.com"]}))
+    (tmp_path / "data/fetched_posts.json").write_text("[]")
+    
+    # Mock requests.get to return HTML (standard HTML, not XML)
+    class MockResponse:
+        content = b"<html></html>"
+        def raise_for_status(self): pass
+    monkeypatch.setattr("requests.get", lambda *a, **kw: MockResponse())
+    
+    # Mock AsyncWebCrawler
+    mock_crawler = AsyncMock()
+    mock_crawler.arun.return_value = MockCrawlResult(
+        success=True,
+        url="https://some-url.com",
+        markdown="Article body",
+        metadata={"title": "Some Title", "author": "Some Author", "article:published_time": "2026-07-25T00:00:00Z"}
+    )
+    
+    class MockCrawlerCtx:
+        async def __aenter__(self): return mock_crawler
+        async def __aexit__(self, *args): pass
+    monkeypatch.setattr(pipeline, "AsyncWebCrawler", MockCrawlerCtx)
+    
+    # Mock summarizer, translator, publisher
+    mock_sum = {"tldr": "sum", "problem_why": "p", "solution_how": "s", "insights_tradeoffs": {"pros": [], "cons": []}, "tags_action": [], "rating": 3}
+    mock_trans = {"tldr": "中文摘要", "problem_why": "問題", "solution_how": "方案", "insights_tradeoffs": {"pros": [], "cons": []}, "tags_action": [], "rating": 3}
+    
+    monkeypatch.setattr(pipeline, "summarize_article", AsyncMock(return_value=mock_sum))
+    monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_trans))
+    monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
+    
+    # Run full pipeline
+    await pipeline.main()
+    
+    # Check that standalone files were created in crawled, summarized, translated directories
+    url_hash = pipeline.get_url_hash("https://some-url.com")
+    
+    crawled_file = tmp_path / f"data/crawled/{url_hash}.json"
+    summarized_file = tmp_path / f"data/summarized/{url_hash}.json"
+    translated_file = tmp_path / f"data/translated/{url_hash}.json"
+    
+    assert crawled_file.exists()
+    assert summarized_file.exists()
+    assert translated_file.exists()
+    
+    crawled_data = json.loads(crawled_file.read_text())
+    assert crawled_data["url"] == "https://some-url.com"
+    assert crawled_data["title"] == "Some Title"
+    
+    sum_data = json.loads(summarized_file.read_text())
+    assert sum_data["summary"] == mock_sum
+    
+    trans_data = json.loads(translated_file.read_text())
+    assert trans_data["summary_zh_tw"] == mock_trans
+
+

@@ -6,6 +6,9 @@ import re
 import sys
 import argparse
 import yaml
+import hashlib
+import requests
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
@@ -43,6 +46,112 @@ def normalize_url(url: str) -> str:
         if url.endswith("/"):
             url = url[:-1]
         return url
+
+def get_url_hash(url: str) -> str:
+    """Get MD5 hash of normalized URL."""
+    normalized = normalize_url(url)
+    return hashlib.md5(normalized.encode('utf-8')).hexdigest()
+
+def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
+    """Resolve a list of config URLs (RSS feeds or direct HTML) to a list of article dicts to crawl."""
+    resolved = []
+    for url in config_urls:
+        url = url.strip()
+        if not url:
+            continue
+        try:
+            print(f"Checking URL type: {url}")
+            response = requests.get(url, timeout=15)
+            response.raise_for_status()
+            content = response.content
+            
+            # Check if XML
+            is_xml = False
+            content_start = content[:500].strip().lower()
+            if b"<?xml" in content_start or b"<rss" in content_start or b"<feed" in content_start or b"<item" in content_start or b"<entry" in content_start:
+                is_xml = True
+                
+            if is_xml:
+                print(f"  Detected RSS/Atom feed XML for: {url}")
+                soup = BeautifulSoup(content, "xml")
+                feed_articles = []
+                
+                # RSS
+                items = soup.find_all("item")
+                if items:
+                    for item in items:
+                        link_el = item.find("link")
+                        link = link_el.get_text(strip=True) if link_el else ""
+                        
+                        title_el = item.find("title")
+                        title = title_el.get_text(strip=True) if title_el else "Untitled"
+                        
+                        pub_date_el = item.find("pubDate")
+                        pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
+                        
+                        author_el = item.find("creator") or item.find("dc:creator") or item.find("author")
+                        author = author_el.get_text(strip=True) if author_el else "Unknown"
+                        
+                        if link:
+                            link = urljoin(url, link)
+                            feed_articles.append({
+                                "url": link,
+                                "title": title,
+                                "pub_date": pub_date,
+                                "author": author
+                            })
+                else:
+                    # Atom
+                    entries = soup.find_all("entry")
+                    for entry in entries:
+                        link_el = entry.find("link")
+                        link = ""
+                        if link_el:
+                            link = link_el.get("href") or link_el.get_text(strip=True)
+                        
+                        title_el = entry.find("title")
+                        title = title_el.get_text(strip=True) if title_el else "Untitled"
+                        
+                        pub_date_el = entry.find("published") or entry.find("updated")
+                        pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
+                        
+                        author_el = entry.find("author")
+                        author = "Unknown"
+                        if author_el:
+                            name_el = author_el.find("name")
+                            if name_el:
+                                author = name_el.get_text(strip=True)
+                            else:
+                                author = author_el.get_text(strip=True)
+                                
+                        if link:
+                            link = urljoin(url, link)
+                            feed_articles.append({
+                                "url": link,
+                                "title": title,
+                                "pub_date": pub_date,
+                                "author": author
+                            })
+                print(f"  Found {len(feed_articles)} articles in feed.")
+                resolved.extend(feed_articles)
+            else:
+                print(f"  Detected standard HTML for: {url}")
+                resolved.append({
+                    "url": url,
+                    "title": "Untitled",
+                    "pub_date": "",
+                    "author": "Unknown"
+                })
+        except Exception as e:
+            print(f"  Error accessing {url}: {e}. Treating as direct URL.", file=sys.stderr)
+            resolved.append({
+                "url": url,
+                "title": "Untitled",
+                "pub_date": "",
+                "author": "Unknown"
+            })
+    return resolved
+
 
 def load_deduplication_store(file_path: str) -> set[str]:
     """Load existing URLs from a JSON file, returning a set. Fallback to empty set on error/missing."""
@@ -236,10 +345,13 @@ async def run_crawl():
     urls = blog_config.get("blogs", [])
     if not urls:
         print("Warning: No URLs found in data/blogs.yaml")
-        os.makedirs("data", exist_ok=True)
+        os.makedirs("data/crawled", exist_ok=True)
         with open(CRAWLED_ARTICLES_PATH, "w") as f:
             json.dump([], f, indent=2)
         return []
+
+    # Resolve URLs (RSS feeds to articles, or direct HTML)
+    articles_to_crawl = resolve_urls_to_crawl(urls)
 
     # Setup CrawlerRunConfig with PruningContentFilter to exclude headers, footers, sidebars
     run_config = CrawlerRunConfig(
@@ -255,10 +367,13 @@ async def run_crawl():
     failures = []
     successes = []
     
+    os.makedirs("data/crawled", exist_ok=True)
+    
     try:
-        print(f"Starting crawl for {len(urls)} URLs...")
+        print(f"Starting crawl for {len(articles_to_crawl)} resolved URLs...")
         async with AsyncWebCrawler() as crawler:
-            for url in urls:
+            for art in articles_to_crawl:
+                url = art["url"]
                 if normalize_url(url) in dedup_set_normalized:
                     print(f"Skipping already crawled URL: {url}")
                     continue
@@ -267,6 +382,16 @@ async def run_crawl():
                 if error_msg:
                     failures.append((url, error_msg))
                 else:
+                    # Enrich parsed_data with info from feed if crawler metadata is missing
+                    if parsed_data.get("title") == "Untitled" and art.get("title") != "Untitled":
+                        parsed_data["title"] = art["title"]
+                    if parsed_data.get("author") == "Unknown" and art.get("author") != "Unknown":
+                        parsed_data["author"] = art["author"]
+                    if art.get("pub_date"):
+                        match = re.search(r'\d{4}-\d{2}-\d{2}', art["pub_date"])
+                        if match and parsed_data["publication_date"] == datetime.date.today().isoformat():
+                            parsed_data["publication_date"] = match.group(0)
+
                     successes.append(parsed_data)
                     print(f"Successfully crawled: {url}")
                     print(f"  Title: {parsed_data['title']}")
@@ -275,17 +400,22 @@ async def run_crawl():
                     print(f"  Body length: {len(parsed_data['body'])} characters")
                     print("-" * 40)
                     
+                    # Save standalone file
+                    url_hash = get_url_hash(url)
+                    file_path = os.path.join("data", "crawled", f"{url_hash}.json")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        json.dump(parsed_data, f, indent=2)
+                    
         # Final reporting
         print(f"\nCrawl execution summary:")
-        print(f"Total processed: {len(urls)}")
+        print(f"Total processed: {len(articles_to_crawl)}")
         print(f"Successful crawls: {len(successes)}")
         print(f"Failed crawls: {len(failures)}")
         
-        # Save to crawled_articles.json
-        os.makedirs("data", exist_ok=True)
+        # Save legacy file
         with open(CRAWLED_ARTICLES_PATH, "w") as f:
             json.dump(successes, f, indent=2)
-        print(f"Successfully saved {len(successes)} crawled articles to {CRAWLED_ARTICLES_PATH}")
+        print(f"Successfully saved crawled articles to standalone files and {CRAWLED_ARTICLES_PATH}")
         
         if failures:
             print("\nFailed URLs and errors:")
@@ -300,15 +430,34 @@ async def run_crawl():
 async def run_summarize():
     validate_google_api_key()
     
-    if not os.path.exists(CRAWLED_ARTICLES_PATH):
-        print(f"Error: {CRAWLED_ARTICLES_PATH} not found. Run crawl stage first.", file=sys.stderr)
-        sys.exit(1)
-        
-    try:
-        with open(CRAWLED_ARTICLES_PATH, "r") as f:
-            articles = json.load(f)
-    except Exception as e:
-        print(f"Error reading {CRAWLED_ARTICLES_PATH}: {e}", file=sys.stderr)
+    crawled_dir = os.path.join("data", "crawled")
+    os.makedirs(crawled_dir, exist_ok=True)
+    os.makedirs(os.path.join("data", "summarized"), exist_ok=True)
+    
+    crawled_files = [os.path.join(crawled_dir, f) for f in os.listdir(crawled_dir) if f.endswith(".json")]
+    
+    articles = []
+    if crawled_files:
+        for file_path in crawled_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    articles.append(json.load(f))
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}", file=sys.stderr)
+    elif os.path.exists(CRAWLED_ARTICLES_PATH):
+        try:
+            with open(CRAWLED_ARTICLES_PATH, "r") as f:
+                articles = json.load(f)
+            # Populate standalone files
+            for art in articles:
+                url_hash = get_url_hash(art["url"])
+                with open(os.path.join(crawled_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
+                    json.dump(art, f_out, indent=2)
+        except Exception as e:
+            print(f"Error reading {CRAWLED_ARTICLES_PATH}: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Error: No crawled articles found.", file=sys.stderr)
         sys.exit(1)
 
     print(f"Starting summarization for {len(articles)} articles...")
@@ -318,19 +467,35 @@ async def run_summarize():
     
     for art in articles:
         url = art['url']
+        url_hash = get_url_hash(url)
+        summarized_file_path = os.path.join("data", "summarized", f"{url_hash}.json")
+        
+        # Optimization: skip if already has a valid summary
+        if os.path.exists(summarized_file_path):
+            try:
+                with open(summarized_file_path, "r", encoding="utf-8") as f:
+                    sum_art = json.load(f)
+                if "summary" in sum_art and sum_art["summary"]:
+                    successes.append(sum_art)
+                    print(f"Skipping already summarized: {url}")
+                    continue
+            except Exception:
+                pass
+                
         summary = await summarize_article(url, art['body'], art['title'])
         if summary is None:
             failures.append((url, "summarization failed"))
         else:
             art['summary'] = summary
             successes.append(art)
+            with open(summarized_file_path, "w", encoding="utf-8") as f:
+                json.dump(art, f, indent=2)
             print(f"Successfully summarized: {url}")
             
-    # Save to summarized_articles.json
-    os.makedirs("data", exist_ok=True)
+    # Save legacy file
     with open(SUMMARIZED_ARTICLES_PATH, "w") as f:
         json.dump(successes, f, indent=2)
-    print(f"Successfully saved {len(successes)} summarized articles to {SUMMARIZED_ARTICLES_PATH}")
+    print(f"Successfully saved summarized articles to standalone files and {SUMMARIZED_ARTICLES_PATH}")
     
     if failures:
         print("\nFailed summarizations:")
@@ -342,15 +507,34 @@ async def run_summarize():
 async def run_translate():
     validate_google_api_key()
     
-    if not os.path.exists(SUMMARIZED_ARTICLES_PATH):
-        print(f"Error: {SUMMARIZED_ARTICLES_PATH} not found. Run summarize stage first.", file=sys.stderr)
-        sys.exit(1)
-        
-    try:
-        with open(SUMMARIZED_ARTICLES_PATH, "r") as f:
-            articles = json.load(f)
-    except Exception as e:
-        print(f"Error reading {SUMMARIZED_ARTICLES_PATH}: {e}", file=sys.stderr)
+    summarized_dir = os.path.join("data", "summarized")
+    os.makedirs(summarized_dir, exist_ok=True)
+    os.makedirs(os.path.join("data", "translated"), exist_ok=True)
+    
+    summarized_files = [os.path.join(summarized_dir, f) for f in os.listdir(summarized_dir) if f.endswith(".json")]
+    
+    articles = []
+    if summarized_files:
+        for file_path in summarized_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    articles.append(json.load(f))
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}", file=sys.stderr)
+    elif os.path.exists(SUMMARIZED_ARTICLES_PATH):
+        try:
+            with open(SUMMARIZED_ARTICLES_PATH, "r") as f:
+                articles = json.load(f)
+            # Populate standalone files
+            for art in articles:
+                url_hash = get_url_hash(art["url"])
+                with open(os.path.join(summarized_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
+                    json.dump(art, f_out, indent=2)
+        except Exception as e:
+            print(f"Error reading {SUMMARIZED_ARTICLES_PATH}: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Error: No summarized articles found.", file=sys.stderr)
         sys.exit(1)
 
     print(f"Starting translation for {len(articles)} articles...")
@@ -360,6 +544,21 @@ async def run_translate():
     
     for art in articles:
         url = art['url']
+        url_hash = get_url_hash(url)
+        translated_file_path = os.path.join("data", "translated", f"{url_hash}.json")
+        
+        # Optimization: skip if already has a valid translation
+        if os.path.exists(translated_file_path):
+            try:
+                with open(translated_file_path, "r", encoding="utf-8") as f:
+                    trans_art = json.load(f)
+                if "summary_zh_tw" in trans_art and trans_art["summary_zh_tw"]:
+                    successes.append(trans_art)
+                    print(f"Skipping already translated: {url}")
+                    continue
+            except Exception:
+                pass
+                
         summary = art.get('summary')
         if not summary:
             failures.append((url, "missing summary"))
@@ -371,13 +570,14 @@ async def run_translate():
         else:
             art['summary_zh_tw'] = translated
             successes.append(art)
+            with open(translated_file_path, "w", encoding="utf-8") as f:
+                json.dump(art, f, indent=2)
             print(f"Successfully translated: {url}")
             
-    # Save to translated_articles.json
-    os.makedirs("data", exist_ok=True)
+    # Save legacy file
     with open(TRANSLATED_ARTICLES_PATH, "w") as f:
         json.dump(successes, f, indent=2)
-    print(f"Successfully saved {len(successes)} translated articles to {TRANSLATED_ARTICLES_PATH}")
+    print(f"Successfully saved translated articles to standalone files and {TRANSLATED_ARTICLES_PATH}")
     
     if failures:
         print("\nFailed translations:")
@@ -387,15 +587,33 @@ async def run_translate():
     return successes
 
 async def run_publish():
-    if not os.path.exists(TRANSLATED_ARTICLES_PATH):
-        print(f"Error: {TRANSLATED_ARTICLES_PATH} not found. Run translate stage first.", file=sys.stderr)
-        sys.exit(1)
+    translated_dir = os.path.join("data", "translated")
+    translated_files = []
+    if os.path.exists(translated_dir):
+        translated_files = [os.path.join(translated_dir, f) for f in os.listdir(translated_dir) if f.endswith(".json")]
         
-    try:
-        with open(TRANSLATED_ARTICLES_PATH, "r") as f:
-            articles = json.load(f)
-    except Exception as e:
-        print(f"Error reading {TRANSLATED_ARTICLES_PATH}: {e}", file=sys.stderr)
+    articles = []
+    if translated_files:
+        for file_path in translated_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    articles.append(json.load(f))
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}", file=sys.stderr)
+    elif os.path.exists(TRANSLATED_ARTICLES_PATH):
+        try:
+            with open(TRANSLATED_ARTICLES_PATH, "r") as f:
+                articles = json.load(f)
+            # Populate standalone files
+            for art in articles:
+                url_hash = get_url_hash(art["url"])
+                with open(os.path.join(translated_dir, f"{url_hash}.json"), "w", encoding="utf-8") as f_out:
+                    json.dump(art, f_out, indent=2)
+        except Exception as e:
+            print(f"Error reading {TRANSLATED_ARTICLES_PATH}: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Error: No translated articles found.", file=sys.stderr)
         sys.exit(1)
 
     if not articles:
