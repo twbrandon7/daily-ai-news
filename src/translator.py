@@ -29,6 +29,14 @@ def _log_translate_error(url: str, error_message: str) -> None:
     }
     print(json.dumps(log_data), file=sys.stderr)
 
+def _contains_term(term: str, text: str) -> bool:
+    """Check if term (or common plural/singular variant) exists as a whole word in text."""
+    if term.lower() == "embeddings":
+        pattern = r"\bembedding[s]?\b"
+    else:
+        pattern = rf"\b{re.escape(term)}[s]?\b"
+    return bool(re.search(pattern, text, flags=re.ASCII | re.IGNORECASE))
+
 def _parse_translation(response_text: str, original_summary: dict) -> dict:
     """
     Parse and validate the JSON translation from a model response string.
@@ -107,8 +115,8 @@ def _parse_translation(response_text: str, original_summary: dict) -> dict:
         orig_val = original_summary.get(field, "")
         trans_val = data[field]
         for term in TERMS:
-            if term.lower() in orig_val.lower():
-                if term.lower() not in trans_val.lower():
+            if _contains_term(term, orig_val):
+                if not _contains_term(term, trans_val):
                     raise ValueError(f"Term '{term}' missing in translated field '{field}'")
 
     # Check insights_tradeoffs
@@ -116,16 +124,16 @@ def _parse_translation(response_text: str, original_summary: dict) -> dict:
         orig_val = " ".join(original_summary.get("insights_tradeoffs", {}).get(key, []))
         trans_val = " ".join(data["insights_tradeoffs"][key])
         for term in TERMS:
-            if term.lower() in orig_val.lower():
-                if term.lower() not in trans_val.lower():
+            if _contains_term(term, orig_val):
+                if not _contains_term(term, trans_val):
                     raise ValueError(f"Term '{term}' missing in translated insights_tradeoffs.{key}")
 
     # Check tags_action
     orig_tags = " ".join(original_summary.get("tags_action", []))
     trans_tags = " ".join(data["tags_action"])
     for term in TERMS:
-        if term.lower() in orig_tags.lower():
-            if term.lower() not in trans_tags.lower():
+        if _contains_term(term, orig_tags):
+            if not _contains_term(term, trans_tags):
                 raise ValueError(f"Term '{term}' missing in translated tags_action")
 
     return data

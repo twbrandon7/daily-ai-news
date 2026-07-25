@@ -284,3 +284,30 @@ async def test_translate_summary_log_timestamp_format(capsys):
     import re
     assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", timestamp) is not None
 
+
+def test_parse_translation_substring_terms_not_matched():
+    """Words like 'coverage' containing 'rag' as a substring should NOT falsely trigger term checks."""
+    from src.translator import _parse_translation
+
+    original = {
+        "tldr": "Broad coverage of model distillation.",
+        "problem_why": "Geopolitical coverage around model distillation.",
+        "solution_how": "Unified architecture.",
+        "insights_tradeoffs": {"pros": ["Good"], "cons": ["None"]},
+        "tags_action": ["news"],
+        "rating": 5,
+    }
+    translated = {
+        "tldr": "廣泛涵蓋模型蒸餾。",
+        "problem_why": "圍繞模型蒸餾的地緣政治局勢。",
+        "solution_how": "統一架構。",
+        "insights_tradeoffs": {"pros": ["好"], "cons": ["無"]},
+        "tags_action": ["新聞"],
+        "rating": 5,
+    }
+
+    # Should parse successfully without raising ValueError for missing 'RAG'
+    result = _parse_translation(json.dumps(translated), original)
+    assert result == translated
+
+
