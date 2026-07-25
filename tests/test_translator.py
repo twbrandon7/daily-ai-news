@@ -324,3 +324,59 @@ def test_parse_translation_substring_terms_not_matched():
     _validate_translation_constraints(translated, original)
 
 
+@pytest.mark.asyncio
+async def test_translate_summary_refinement_step():
+    """Verify refinement sub-step executes with REFINE_PROMPT and returns polished summary."""
+    from src.translator import translate_summary, REFINE_PROMPT, TRANSLATE_PROMPT
+
+    refined_summary = {
+        "tldr": "這是一套統一架構。關注「模型蒸餾 (Model Distillation)」與 prompt agent 在 RAG pipeline 的應用。",
+        "problem_why": "說明為什麼需要 fine-tuning。",
+        "solution_how": "說明 checkpoint embeddings 如何運作。",
+        "insights_tradeoffs": {
+            "pros": ["良好的 token 經濟"],
+            "cons": ["高延遲"],
+        },
+        "tags_action": ["RAG", "fine-tuning"],
+        "rating": 5,
+    }
+
+    final_event = _make_event(json.dumps(refined_summary), is_final=True)
+
+    with (
+        patch("src.translator.LlmAgent") as MockAgent,
+        patch("src.translator.Runner") as MockRunner,
+        patch("src.translator.InMemorySessionService") as MockSessionSvc,
+    ):
+        mock_session_1 = MagicMock()
+        mock_session_1.id = "sess-trans"
+        mock_session_1.state = {"translation": ZH_TW_SUMMARY}
+
+        mock_session_2 = MagicMock()
+        mock_session_2.id = "sess-refine"
+        mock_session_2.state = {"refinement": refined_summary}
+
+        mock_svc_instance = AsyncMock()
+        mock_svc_instance.create_session = AsyncMock(side_effect=[mock_session_1, mock_session_2])
+        mock_svc_instance.get_session = AsyncMock(side_effect=[mock_session_1, mock_session_2])
+        MockSessionSvc.return_value = mock_svc_instance
+
+        mock_runner_instance = MagicMock()
+        mock_runner_instance.run_async.return_value = _async_gen(final_event)
+        MockRunner.return_value = mock_runner_instance
+
+        result = await translate_summary(
+            url="https://example.com/article",
+            summary=ENG_SUMMARY,
+        )
+
+    assert result is not None
+    assert result["tldr"] == refined_summary["tldr"]
+    assert "模型蒸餾 (Model Distillation)" in result["tldr"]
+    assert MockAgent.call_count == 2
+    # Verify first call instructions contain translation prompt and second call contains refine prompt
+    assert MockAgent.call_args_list[0].kwargs["instruction"] == TRANSLATE_PROMPT
+    assert MockAgent.call_args_list[1].kwargs["instruction"] == REFINE_PROMPT
+
+
+

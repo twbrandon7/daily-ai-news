@@ -31,6 +31,18 @@ Strict Guidelines:
 4. Maintain the exact structure of the input.
 """
 
+REFINE_PROMPT = """You are an expert Traditional Chinese (Taiwan) technical editor. Polish and refine the translated JSON summary of an AI/tech article to make it natural, fluent, professional, and easily scannable.
+
+Polishing Guidelines:
+1. Break Long Sentences (拆句): Split stacked clauses into 2-3 shorter sentences to eliminate rigid "English-style" sentence structures (避免英式句型).
+2. Fix Semantic Mismatches (修正動賓搭配): Ensure verbs naturally match all subjects and objects in Traditional Chinese.
+3. Localize & Format Terminology (術語在地化):
+   - Retain the original English term in parentheses when translating specialized jargon for the first time or where appropriate (e.g., "模型蒸餾 (Model Distillation)").
+   - Do NOT over-translate widely accepted tech terms (keep "prompt", "fine-tuning", "agent", "RAG", "pipeline", "checkpoint", "embeddings", "token", "AI Agent" verbatim in English; do NOT force-translate "agent" into "代理").
+4. Preserve the "rating" field value exactly as an integer.
+5. Maintain the exact JSON structure of the input summary.
+"""
+
 def _log_translate_error(url: str, error_message: str) -> None:
     """Log a structured JSON error entry to stderr for translation failures."""
     log_data = {
@@ -95,7 +107,8 @@ def _validate_translation_constraints(data: dict, original_summary: dict) -> Non
 
 async def translate_summary(url: str, summary: dict) -> dict | None:
     """
-    Translate an English summary into Traditional Chinese (Taiwan) using Google ADK + Gemini.
+    Translate an English summary into Traditional Chinese (Taiwan) using Google ADK + Gemini,
+    followed by a refinement sub-step to polish technical translation quality.
 
     Parameters
     ----------
@@ -107,7 +120,7 @@ async def translate_summary(url: str, summary: dict) -> dict | None:
     Returns
     -------
     dict | None
-        The translated summary dict, or None on failure.
+        The translated and refined summary dict, or None on failure.
     """
     if not summary or not isinstance(summary, dict):
         _log_translate_error(url, "Invalid or empty summary dict for translation.")
@@ -178,8 +191,52 @@ async def translate_summary(url: str, summary: dict) -> dict | None:
         )
         parsed = updated_session.state.get("translation")
 
-        if parsed is not None:
-            _validate_translation_constraints(parsed, summary)
+        if parsed is None:
+            _log_translate_error(url, "No final response received from model.")
+            return None
+
+        # Refinement sub-step: Polish technical translation
+        refiner_agent = LlmAgent(
+            model="gemini-3.5-flash-lite",
+            name="refiner",
+            instruction=REFINE_PROMPT,
+            output_schema=TranslationSummary,
+            output_key="refinement",
+        )
+        refine_runner = Runner(
+            agent=refiner_agent,
+            app_name="refiner",
+            session_service=session_service,
+        )
+        refine_session = await session_service.create_session(
+            app_name="refiner",
+            user_id="pipeline",
+        )
+        refine_message = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part.from_text(text=json.dumps(parsed, indent=2))],
+        )
+
+        async def run_refine_with_timeout():
+            async for event in refine_runner.run_async(
+                user_id="pipeline",
+                session_id=refine_session.id,
+                new_message=refine_message,
+            ):
+                pass
+
+        await asyncio.wait_for(run_refine_with_timeout(), timeout=30.0)
+
+        refine_updated_session = await session_service.get_session(
+            app_name="refiner",
+            user_id="pipeline",
+            session_id=refine_session.id,
+        )
+        refined = refine_updated_session.state.get("refinement")
+        final_summary = refined if refined is not None else parsed
+
+        _validate_translation_constraints(final_summary, summary)
+        return final_summary
 
     except asyncio.TimeoutError:
         _log_translate_error(url, "API call timed out after 30.0 seconds.")
@@ -187,10 +244,4 @@ async def translate_summary(url: str, summary: dict) -> dict | None:
     except Exception as exc:
         _log_translate_error(url, f"ADK/API/Validation error: {exc}")
         return None
-
-    if parsed is None:
-        _log_translate_error(url, "No final response received from model.")
-        return None
-
-    return parsed
 
