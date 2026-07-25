@@ -53,14 +53,14 @@ def get_url_hash(url: str) -> str:
     return hashlib.md5(normalized.encode('utf-8')).hexdigest()
 
 def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
-    """Resolve a list of config URLs (RSS feeds or direct HTML) to a list of article dicts to crawl."""
+    """Resolve a list of config URLs (RSS feeds) to a list of article dicts to crawl."""
     resolved = []
     for url in config_urls:
         url = url.strip()
         if not url:
             continue
         try:
-            print(f"Checking URL type: {url}")
+            print(f"Fetching RSS feed: {url}")
             response = requests.get(url, timeout=15)
             response.raise_for_status()
             content = response.content
@@ -71,113 +71,112 @@ def resolve_urls_to_crawl(config_urls: list[str]) -> list[dict]:
             if b"<?xml" in content_start or b"<rss" in content_start or b"<feed" in content_start or b"<item" in content_start or b"<entry" in content_start:
                 is_xml = True
                 
-            if is_xml:
-                print(f"  Detected RSS/Atom feed XML for: {url}")
-                soup = BeautifulSoup(content, "xml")
-                feed_articles = []
+            if not is_xml:
+                print(f"Error: Feed URL {url} did not return valid XML. Skipping.", file=sys.stderr)
+                continue
                 
-                # RSS
-                items = soup.find_all("item")
-                if items:
-                    for item in items:
-                        link_el = item.find("link")
-                        link = link_el.get_text(strip=True) if link_el else ""
-                        
-                        title_el = item.find("title")
-                        title = title_el.get_text(strip=True) if title_el else "Untitled"
-                        
-                        pub_date_el = item.find("pubDate")
-                        pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
-                        
-                        author_el = item.find("creator") or item.find("dc:creator") or item.find("author")
-                        author = author_el.get_text(strip=True) if author_el else "Unknown"
-                        
-                        if link:
-                            link = urljoin(url, link)
-                            feed_articles.append({
-                                "url": link,
-                                "title": title,
-                                "pub_date": pub_date,
-                                "author": author
-                            })
-                else:
-                    # Atom
-                    entries = soup.find_all("entry")
-                    for entry in entries:
-                        link_el = entry.find("link")
-                        link = ""
-                        if link_el:
-                            link = link_el.get("href") or link_el.get_text(strip=True)
-                        
-                        title_el = entry.find("title")
-                        title = title_el.get_text(strip=True) if title_el else "Untitled"
-                        
-                        pub_date_el = entry.find("published") or entry.find("updated")
-                        pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
-                        
-                        author_el = entry.find("author")
-                        author = "Unknown"
-                        if author_el:
-                            name_el = author_el.find("name")
-                            if name_el:
-                                author = name_el.get_text(strip=True)
-                            else:
-                                author = author_el.get_text(strip=True)
-                                
-                        if link:
-                            link = urljoin(url, link)
-                            feed_articles.append({
-                                "url": link,
-                                "title": title,
-                                "pub_date": pub_date,
-                                "author": author
-                            })
-                print(f"  Found {len(feed_articles)} articles in feed.")
-                resolved.extend(feed_articles)
+            print(f"  Detected RSS/Atom feed XML for: {url}")
+            soup = BeautifulSoup(content, "xml")
+            feed_articles = []
+            
+            # RSS
+            items = soup.find_all("item")
+            if items:
+                for item in items:
+                    link_el = item.find("link")
+                    link = link_el.get_text(strip=True) if link_el else ""
+                    
+                    title_el = item.find("title")
+                    title = title_el.get_text(strip=True) if title_el else "Untitled"
+                    
+                    pub_date_el = item.find("pubDate")
+                    pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
+                    
+                    author_el = item.find("creator") or item.find("dc:creator") or item.find("author")
+                    author = author_el.get_text(strip=True) if author_el else "Unknown"
+                    
+                    if link:
+                        link = urljoin(url, link)
+                        feed_articles.append({
+                            "url": link,
+                            "title": title,
+                            "pub_date": pub_date,
+                            "author": author,
+                            "feed_url": url
+                        })
             else:
-                print(f"  Detected standard HTML for: {url}")
-                resolved.append({
-                    "url": url,
-                    "title": "Untitled",
-                    "pub_date": "",
-                    "author": "Unknown"
-                })
+                # Atom
+                entries = soup.find_all("entry")
+                for entry in entries:
+                    link_el = entry.find("link")
+                    link = ""
+                    if link_el:
+                        link = link_el.get("href") or link_el.get_text(strip=True)
+                    
+                    title_el = entry.find("title")
+                    title = title_el.get_text(strip=True) if title_el else "Untitled"
+                    
+                    pub_date_el = entry.find("published") or entry.find("updated")
+                    pub_date = pub_date_el.get_text(strip=True) if pub_date_el else ""
+                    
+                    author_el = entry.find("author")
+                    author = "Unknown"
+                    if author_el:
+                        name_el = author_el.find("name")
+                        if name_el:
+                            author = name_el.get_text(strip=True)
+                        else:
+                            author = author_el.get_text(strip=True)
+                            
+                    if link:
+                        link = urljoin(url, link)
+                        feed_articles.append({
+                            "url": link,
+                            "title": title,
+                            "pub_date": pub_date,
+                            "author": author,
+                            "feed_url": url
+                        })
+            if not feed_articles:
+                print(f"Error: No articles found in feed {url}. Skipping.", file=sys.stderr)
+                continue
+                
+            print(f"  Found {len(feed_articles)} articles in feed.")
+            resolved.extend(feed_articles)
         except Exception as e:
-            print(f"  Error accessing {url}: {e}. Treating as direct URL.", file=sys.stderr)
-            resolved.append({
-                "url": url,
-                "title": "Untitled",
-                "pub_date": "",
-                "author": "Unknown"
-            })
+            print(f"Error accessing or parsing feed {url}: {e}. Skipping.", file=sys.stderr)
     return resolved
 
 
-def load_deduplication_store(file_path: str) -> set[str]:
-    """Load existing URLs from a JSON file, returning a set. Fallback to empty set on error/missing."""
+
+def load_deduplication_store(file_path: str) -> dict[str, set[str]]:
+    """Load existing URLs from a JSON file, returning a dict of feed_url -> set of article URLs."""
     if not os.path.exists(file_path):
-        return set()
+        return {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if isinstance(data, list):
-            return set(str(url) for url in data)
+        if isinstance(data, dict):
+            return {k: set(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return {"legacy": set(str(url) for url in data)}
         else:
-            print(f"Warning: Expected list in deduplication store at {file_path}, got {type(data).__name__}", file=sys.stderr)
+            print(f"Warning: Expected dict or list in deduplication store at {file_path}, got {type(data).__name__}", file=sys.stderr)
     except Exception as e:
         print(f"Warning: Failed to load deduplication store from {file_path}: {e}", file=sys.stderr)
-    return set()
+    return {}
 
-def save_deduplication_store(file_path: str, urls: set[str]):
-    """Save the updated URL list to a JSON file in a structured JSON format (array of strings)."""
+def save_deduplication_store(file_path: str, store: dict[str, set[str]]):
+    """Save the updated URL store to a JSON file as a dict of feed_url -> sorted list of article URLs."""
     temp_path = None
     try:
         dir_name = os.path.dirname(file_path)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
         temp_path = file_path + ".tmp"
+        serializable_store = {k: sorted(list(v)) for k, v in store.items()}
         with open(temp_path, "w", encoding="utf-8") as f:
-            json.dump(sorted(list(urls)), f, indent=2)
+            json.dump(serializable_store, f, indent=2)
         os.replace(temp_path, file_path)
     except Exception as e:
         print(f"Warning: Failed to save deduplication store to {file_path}: {e}", file=sys.stderr)
@@ -186,6 +185,7 @@ def save_deduplication_store(file_path: str, urls: set[str]):
                 os.remove(temp_path)
             except Exception:
                 pass
+
 
 def extract_article_info(url, result):
     """Extract title, publication date, author, and main article body from CrawlResult."""
@@ -362,7 +362,6 @@ async def run_crawl():
     )
     
     dedup_store = load_deduplication_store(DEDUP_PATH)
-    dedup_set_normalized = {normalize_url(u) for u in dedup_store}
     
     failures = []
     successes = []
@@ -374,7 +373,14 @@ async def run_crawl():
         async with AsyncWebCrawler() as crawler:
             for art in articles_to_crawl:
                 url = art["url"]
-                if normalize_url(url) in dedup_set_normalized:
+                feed_url = art.get("feed_url", "direct")
+                
+                # Check feed-specific dedup set and legacy set
+                feed_dedup = dedup_store.get(feed_url, set())
+                legacy_dedup = dedup_store.get("legacy", set())
+                
+                normalized_url = normalize_url(url)
+                if normalized_url in {normalize_url(u) for u in feed_dedup} or normalized_url in {normalize_url(u) for u in legacy_dedup}:
                     print(f"Skipping already crawled URL: {url}")
                     continue
                     
@@ -391,6 +397,8 @@ async def run_crawl():
                         match = re.search(r'\d{4}-\d{2}-\d{2}', art["pub_date"])
                         if match and parsed_data["publication_date"] == datetime.date.today().isoformat():
                             parsed_data["publication_date"] = match.group(0)
+                            
+                    parsed_data["feed_url"] = feed_url
 
                     successes.append(parsed_data)
                     print(f"Successfully crawled: {url}")
@@ -648,7 +656,10 @@ async def run_publish():
             json.dump(articles, f, indent=2)
         print(f"Successfully saved {len(articles)} articles to {PARSED_ARTICLES_PATH}")
         for item in articles:
-            dedup_store.add(item['url'])
+            feed_url = item.get("feed_url", "direct")
+            if feed_url not in dedup_store:
+                dedup_store[feed_url] = set()
+            dedup_store[feed_url].add(item['url'])
     except Exception as e:
         print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
     finally:

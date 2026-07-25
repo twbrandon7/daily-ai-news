@@ -3,6 +3,26 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock
 from src.pipeline import extract_article_info, log_error, crawl_blog
 
+@pytest.fixture(autouse=True)
+def mock_requests_get(monkeypatch):
+    """Autouse fixture to mock requests.get to return a valid RSS XML feed with the requested URL."""
+    class MockResponse:
+        def __init__(self, url):
+            self.content = f"""<?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0">
+            <channel>
+              <item>
+                <title>Mock Article for {url}</title>
+                <link>{url}</link>
+              </item>
+            </channel>
+            </rss>
+            """.encode('utf-8')
+        def raise_for_status(self):
+            pass
+            
+    monkeypatch.setattr("requests.get", lambda url, *args, **kwargs: MockResponse(url))
+
 class MockMarkdown:
     def __init__(self, text=""):
         self.fit_markdown = text
@@ -126,33 +146,33 @@ async def test_crawl_blog_failure(capsys):
 def test_load_deduplication_store_nonexistent(tmp_path):
     from src.pipeline import load_deduplication_store
     path = tmp_path / "nonexistent.json"
-    assert load_deduplication_store(str(path)) == set()
+    assert load_deduplication_store(str(path)) == {}
 
 def test_load_deduplication_store_invalid_json(tmp_path):
     from src.pipeline import load_deduplication_store
     path = tmp_path / "invalid.json"
     path.write_text("{invalid")
-    assert load_deduplication_store(str(path)) == set()
+    assert load_deduplication_store(str(path)) == {}
 
-def test_load_deduplication_store_not_list(tmp_path):
+def test_load_deduplication_store_not_dict_or_list(tmp_path):
     from src.pipeline import load_deduplication_store
-    path = tmp_path / "not_list.json"
-    path.write_text('{"a": 1}')
-    assert load_deduplication_store(str(path)) == set()
+    path = tmp_path / "not_dict_or_list.json"
+    path.write_text('123')
+    assert load_deduplication_store(str(path)) == {}
 
 def test_load_deduplication_store_valid(tmp_path):
     from src.pipeline import load_deduplication_store
     path = tmp_path / "valid.json"
     path.write_text('["https://a.com", "https://b.com"]')
-    assert load_deduplication_store(str(path)) == {"https://a.com", "https://b.com"}
+    assert load_deduplication_store(str(path)) == {"legacy": {"https://a.com", "https://b.com"}}
 
 def test_save_deduplication_store(tmp_path):
     from src.pipeline import save_deduplication_store
     path = tmp_path / "output.json"
-    save_deduplication_store(str(path), {"https://a.com", "https://b.com"})
+    save_deduplication_store(str(path), {"feed1": {"https://a.com", "https://b.com"}})
     assert path.exists()
     data = json.loads(path.read_text())
-    assert sorted(data) == ["https://a.com", "https://b.com"]
+    assert data == {"feed1": ["https://a.com", "https://b.com"]}
 
 @pytest.mark.asyncio
 async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys):
@@ -231,7 +251,10 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     
     # Verify fetched_posts.json has both old and new URLs
     updated_fetched = json.loads(fetched_posts.read_text())
-    assert sorted(updated_fetched) == ["https://new-url.com", "https://old-url.com"]
+    assert updated_fetched == {
+        "legacy": ["https://old-url.com"],
+        "https://new-url.com": ["https://new-url.com"]
+    }
     
     # Verify parsed_articles.json has only the new article
     parsed_articles_path = tmp_path / "data/parsed_articles.json"
@@ -253,12 +276,12 @@ def test_normalize_url():
 
 def test_load_deduplication_store_non_list_warning(tmp_path, capsys):
     from src.pipeline import load_deduplication_store
-    path = tmp_path / "dict.json"
-    path.write_text('{"key": "value"}')
+    path = tmp_path / "string.json"
+    path.write_text('"hello"')
     res = load_deduplication_store(str(path))
-    assert res == set()
+    assert res == {}
     captured = capsys.readouterr()
-    assert "Warning: Expected list" in captured.err
+    assert "Warning: Expected dict or list" in captured.err
 
 @pytest.mark.asyncio
 async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monkeypatch, capsys):
@@ -337,7 +360,7 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
     
     # Verify that crawled URL was NOT added to fetched_posts.json because of the save failure
     updated_fetched = json.loads(fetched_posts.read_text())
-    assert updated_fetched == []
+    assert updated_fetched == {"legacy": []}
 
 
 
@@ -746,9 +769,18 @@ async def test_pipeline_standalone_files_creation(tmp_path, monkeypatch):
     (tmp_path / "data/blogs.yaml").write_text(yaml.dump({"blogs": ["https://some-url.com"]}))
     (tmp_path / "data/fetched_posts.json").write_text("[]")
     
-    # Mock requests.get to return HTML (standard HTML, not XML)
+    # Mock requests.get to return valid XML
     class MockResponse:
-        content = b"<html></html>"
+        content = """<?xml version="1.0" encoding="UTF-8" ?>
+        <rss version="2.0">
+        <channel>
+          <item>
+            <title>Some Title</title>
+            <link>https://some-url.com</link>
+          </item>
+        </channel>
+        </rss>
+        """.encode('utf-8')
         def raise_for_status(self): pass
     monkeypatch.setattr("requests.get", lambda *a, **kw: MockResponse())
     

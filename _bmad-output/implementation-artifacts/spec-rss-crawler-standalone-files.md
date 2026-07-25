@@ -4,15 +4,15 @@ type: 'feature'
 created: '2026-07-25T19:50:00Z'
 status: 'done'
 baseline_commit: '405bb24e7be17c8799fd7c24de7c3a2fc5c13cc4'
-review_loop_iteration: 0
+review_loop_iteration: 1
 context: []
 ---
 
 ## Intent
 
-**Problem:** The crawler only crawls exact configured URLs without finding new content from RSS feeds. The pipeline concatenates all crawled, summarized, and translated articles into single monolithic JSON files, which is fragile and does not scale well.
+**Problem:** The crawler only crawls exact configured URLs without finding new content from RSS feeds. The pipeline concatenates all crawled, summarized, and translated articles into single monolithic JSON files, which is fragile and does not scale well. In addition, tracking fetched articles must be done per-feed without storing article content in the deduplication file.
 
-**Approach:** Modify the pipeline to parse RSS feed URLs from config, fetch new article links from RSS, crawl them, and process each article in standalone files through crawl, summarize, and translate stages.
+**Approach:** Modify the pipeline to parse RSS feed URLs from config, fetch new article links from RSS, crawl them, and process each article in standalone files through crawl, summarize, and translate stages. Deduplication is tracked per-feed using lists of URLs inside `data/fetched_posts.json`.
 
 ## Boundaries & Constraints
 
@@ -20,7 +20,8 @@ context: []
 - Use `BeautifulSoup` to parse RSS and Atom XML feeds.
 - Save standalone files under `data/crawled/`, `data/summarized/`, and `data/translated/` named with the MD5 hash of the normalized URL (e.g. `{url_hash}.json`).
 - Ensure all intermediate stages work with standalone files.
-- Retain `data/fetched_posts.json` as the source of truth for deduplication.
+- Retain `data/fetched_posts.json` as the source of truth for deduplication, tracking lists of fetched URLs per-feed without storing article content/metadata.
+- Log an error and skip the feed if feed XML cannot be parsed (no fallback to HTML crawling).
 
 **Ask First:**
 - Modifying the keys or format of `data/blogs.yaml`.
