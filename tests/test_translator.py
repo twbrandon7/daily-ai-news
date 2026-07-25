@@ -62,8 +62,10 @@ async def test_translate_summary_happy_path():
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-002"
+        mock_session.state = {"translation": ZH_TW_SUMMARY}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -99,8 +101,10 @@ async def test_translate_summary_altered_rating(capsys):
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-002"
+        mock_session.state = {"translation": altered}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -127,8 +131,10 @@ async def test_translate_summary_api_exception(capsys):
         patch("src.translator.InMemorySessionService") as MockSessionSvc,
     ):
         mock_session = MagicMock()
+        mock_session.state = {}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -163,12 +169,14 @@ async def test_translate_summary_extra_keys_rejected(capsys):
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-002"
+        mock_session.state = {}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
-        mock_runner_instance.run_async.return_value = _async_gen(final_event)
+        mock_runner_instance.run_async.side_effect = ValueError("Schema mismatch. Extra keys: {'extra_field'}")
         MockRunner.return_value = mock_runner_instance
 
         result = await translate_summary(
@@ -198,8 +206,10 @@ async def test_translate_summary_missing_terms_rejected(capsys):
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-002"
+        mock_session.state = {"translation": bad_summary}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -236,8 +246,10 @@ async def test_translate_summary_multiple_code_blocks():
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-002"
+        mock_session.state = {"translation": ZH_TW_SUMMARY}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -264,8 +276,10 @@ async def test_translate_summary_log_timestamp_format(capsys):
         patch("src.translator.InMemorySessionService") as MockSessionSvc,
     ):
         mock_session = MagicMock()
+        mock_session.state = {}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
@@ -287,7 +301,7 @@ async def test_translate_summary_log_timestamp_format(capsys):
 
 def test_parse_translation_substring_terms_not_matched():
     """Words like 'coverage' containing 'rag' as a substring should NOT falsely trigger term checks."""
-    from src.translator import _parse_translation
+    from src.translator import _validate_translation_constraints
 
     original = {
         "tldr": "Broad coverage of model distillation.",
@@ -306,8 +320,7 @@ def test_parse_translation_substring_terms_not_matched():
         "rating": 5,
     }
 
-    # Should parse successfully without raising ValueError for missing 'RAG'
-    result = _parse_translation(json.dumps(translated), original)
-    assert result == translated
+    # Should validate successfully without raising ValueError for missing 'RAG'
+    _validate_translation_constraints(translated, original)
 
 

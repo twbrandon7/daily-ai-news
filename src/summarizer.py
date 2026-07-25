@@ -8,24 +8,25 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
+from pydantic import BaseModel, Field, ConfigDict
 
-SUMMARIZE_PROMPT = """You are a technical article summarizer. Given an article's title and body text, produce a structured JSON summary in English.
+class InsightsTradeoffs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pros: list[str] = Field(description="Key advantages or positive aspects.")
+    cons: list[str] = Field(description="Key drawbacks, limitations, or negative aspects.")
 
-Return ONLY a JSON object with exactly these fields (no extra commentary, no markdown prose around it):
+class ArticleSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tldr: str = Field(description="One-sentence summary of the article.")
+    problem_why: str = Field(description="What problem does this article address and why it matters.")
+    solution_how: str = Field(description="How the article solves the problem or what approach is described.")
+    insights_tradeoffs: InsightsTradeoffs = Field(description="Key advantages and drawbacks.")
+    tags_action: list[str] = Field(description="Relevant tags or action items.")
+    rating: int = Field(ge=1, le=5, description="Integer from 1 to 5 representing the article's technical depth and usefulness.")
 
-{
-  "tldr": "<one-sentence summary of the article>",
-  "problem_why": "<what problem does this article address and why it matters>",
-  "solution_how": "<how the article solves the problem or what approach is described>",
-  "insights_tradeoffs": {
-    "pros": ["<key advantage 1>", "<key advantage 2>"],
-    "cons": ["<key drawback or limitation 1>"]
-  },
-  "tags_action": ["<relevant tag 1>", "<relevant tag 2>", "<relevant tag 3>"],
-  "rating": <integer from 1 to 5 representing the article's technical depth and usefulness>
-}
+SUMMARIZE_PROMPT = """You are a technical article summarizer. Given an article's title and body text, produce a structured summary in English.
 
-Wrap the JSON in ```json ... ``` fencing. Do not include any other text outside the fenced block.
+Ensure all fields in the output schema are fully populated based on the article's content.
 """
 
 
@@ -38,57 +39,6 @@ def _log_summarize_error(url: str, error_message: str) -> None:
         "error_message": error_message,
     }
     print(json.dumps(log_data), file=sys.stderr)
-
-
-def _parse_summary(response_text: str) -> dict | None:
-    """
-    Parse the JSON summary from a model response string.
-
-    Accepts either a ```json ... ``` fenced block or a bare JSON object.
-    Returns the parsed dict if all required fields are present and valid, else None.
-    """
-    # Try to extract from ```json ... ``` fencing first
-    fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", response_text, re.DOTALL | re.IGNORECASE)
-    if fenced:
-        candidate = fenced.group(1).strip()
-    else:
-        # Fall back to the whole response text
-        candidate = response_text.strip()
-
-    try:
-        data = json.loads(candidate)
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-    # Validate required fields and types
-    if not isinstance(data, dict):
-        return None
-
-    required_str_fields = ("tldr", "problem_why", "solution_how")
-    for field in required_str_fields:
-        value = data.get(field)
-        if not isinstance(value, str) or not value.strip():
-            return None
-
-    it = data.get("insights_tradeoffs")
-    if not isinstance(it, dict):
-        return None
-    if not isinstance(it.get("pros"), list) or not isinstance(it.get("cons"), list):
-        return None
-    if any(not isinstance(x, str) for x in it.get("pros", []) + it.get("cons", [])):
-        return None
-
-    tags = data.get("tags_action")
-    if not isinstance(tags, list):
-        return None
-    if any(not isinstance(x, str) for x in tags):
-        return None
-
-    rating = data.get("rating")
-    if type(rating) is not int or not (1 <= rating <= 5):
-        return None
-
-    return data
 
 
 async def summarize_article(url: str, body: str, title: str) -> dict | None:
@@ -122,6 +72,8 @@ async def summarize_article(url: str, body: str, title: str) -> dict | None:
             model="gemini-3.5-flash-lite",
             name="summarizer",
             instruction=SUMMARIZE_PROMPT,
+            output_schema=ArticleSummary,
+            output_key="summary",
         )
         session_service = InMemorySessionService()
         runner = Runner(
@@ -156,20 +108,24 @@ async def summarize_article(url: str, body: str, title: str) -> dict | None:
                 except (AttributeError, TypeError):
                     pass
 
+        # Retrieve structured output from session state
+        updated_session = await session_service.get_session(
+            app_name="summarizer",
+            user_id="pipeline",
+            session_id=session.id,
+        )
+        parsed = updated_session.state.get("summary")
+
     except Exception as exc:
         _log_summarize_error(url or title, f"ADK/API error: {exc}")
         return None
 
-    if response_text is None:
-        _log_summarize_error(url or title, "No final response received from model.")
-        return None
-
-    parsed = _parse_summary(response_text)
     if parsed is None:
         _log_summarize_error(
             url or title,
-            f"Failed to parse summary JSON from model response: {response_text[:200]}",
+            f"Failed to parse summary JSON from model response: {response_text[:200] if response_text else 'No response'}",
         )
         return None
 
     return parsed
+

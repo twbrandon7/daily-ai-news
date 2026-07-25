@@ -66,8 +66,10 @@ async def test_summarize_article_happy_path():
         # Set up session service mock
         mock_session = MagicMock()
         mock_session.id = "sess-001"
+        mock_session.state = {"summary": VALID_SUMMARY_DICT}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         # Set up runner mock
@@ -137,8 +139,10 @@ async def test_summarize_article_api_exception(capsys):
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-err"
+        mock_session.state = {}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         # Runner constructor or run_async raises an exception
@@ -178,8 +182,10 @@ async def test_summarize_article_malformed_response(capsys):
     ):
         mock_session = MagicMock()
         mock_session.id = "sess-bad"
+        mock_session.state = {}
         mock_svc_instance = AsyncMock()
         mock_svc_instance.create_session = AsyncMock(return_value=mock_session)
+        mock_svc_instance.get_session = AsyncMock(return_value=mock_session)
         MockSessionSvc.return_value = mock_svc_instance
 
         mock_runner_instance = MagicMock()
