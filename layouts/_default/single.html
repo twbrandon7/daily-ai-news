@@ -247,7 +247,7 @@
 {{/* ── Embedded article data for JS switcher (Story 2.5) ─── */}}
 {{/* Replace "</" with "<\/" so article content can never break out of the script block (JSON spec allows "\/" as a valid escape for "/"). */}}
 {{ if $articles -}}
-<script type="application/json" id="articles-data">{{ replace (.Params.articles | jsonify) "</" "\\/" | safeHTML }}</script>
+<script type="application/json" id="articles-data">{{ replace (.Params.articles | jsonify) "</" "\\/" | safeJS }}</script>
 {{- end }}
 
 </main>
