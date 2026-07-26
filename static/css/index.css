@@ -856,6 +856,12 @@ h6 {
   margin-inline: auto;
   padding: var(--spacing-xl);
 }
+.article-detail-card {
+  display: none;
+}
+.article-detail-card.is-visible {
+  display: block;
+}
 .article-panel-header {
   margin-bottom: var(--spacing-xl);
   padding-bottom: var(--spacing-lg);

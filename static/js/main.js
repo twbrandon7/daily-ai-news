@@ -12,8 +12,7 @@
   var cards = Array.prototype.slice.call(
     document.querySelectorAll('.sidebar-article-card[data-article-index]')
   );
-  var detailPanel = document.querySelector('.detail-panel');
-  if (!detailPanel || cards.length === 0) return;
+  if (cards.length === 0) return;
 
   var lang = document.documentElement.lang; // "en" or "zh-tw"
 
@@ -78,9 +77,9 @@
     detailCards.forEach(function (card) {
       var cardIdx = parseInt(card.getAttribute('data-article-detail-index'), 10);
       if (cardIdx === idx) {
-        card.classList.remove('hidden');
+        card.classList.add('is-visible');
       } else {
-        card.classList.add('hidden');
+        card.classList.remove('is-visible');
       }
     });
 
@@ -108,12 +107,12 @@
       var saved = localStorage.getItem(storageKey);
       if (saved !== null) {
         var parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed > 0 && parsed < articles.length) {
+        if (!isNaN(parsed) && parsed >= 0 && parsed < articles.length) {
           savedIdx = parsed;
         }
       }
     } catch (e) {}
-    if (savedIdx > 0) activateCard(savedIdx);
+    activateCard(savedIdx);
   }());
 
   /* ── 8. Search input ─────────────────────────────────── */

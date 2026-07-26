@@ -16,3 +16,4 @@ resources/_gen/
 .hugo_build.lock
 
 .env
+.playwright-cli/

@@ -119,7 +119,7 @@
         {{ if $articles }}
         {{ range $idx, $a := $articles }}
         {{- $ratingInt := int ($a.rating | default 3) -}}
-        <div class="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm detail-panel article-detail-card {{ if ne $idx 0 }}hidden{{ end }}"
+        <div class="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm article-detail-card {{ if eq $idx 0 }}is-visible{{ end }}"
              data-article-detail-index="{{ $idx }}">
           <!-- Summary Header -->
           <div class="p-lg border-b border-outline-variant bg-surface-bright">
