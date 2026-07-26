@@ -377,11 +377,47 @@ h6 {
   background: var(--color-background);
 }
 
-/* 14. Active card indicator (.active-card-indicator) */
+/* 14. Sidebar article card (unselected & selected states) */
 
-.active-card-indicator {
-  border-left: 3px solid var(--color-primary);
-  background: rgba(0, 74, 198, 0.05);
+.sidebar-article-card {
+  border: 1px solid #e2e8f0 !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.sidebar-article-card:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.sidebar-article-card .sidebar-icon-box {
+  background-color: #e0e3e5 !important;
+}
+
+.sidebar-article-card .sidebar-icon {
+  color: #434655 !important;
+}
+
+.sidebar-article-card .sidebar-article-title {
+  color: #434655 !important;
+}
+
+.sidebar-article-card.active-card-indicator {
+  border: 2px solid #004ac6 !important;
+  box-shadow: 0 0 0 2px rgba(0, 74, 198, 0.1) !important;
+  background-color: #ffffff !important;
+}
+
+.sidebar-article-card.active-card-indicator .sidebar-icon-box {
+  background-color: rgba(0, 74, 198, 0.1) !important;
+}
+
+.sidebar-article-card.active-card-indicator .sidebar-icon {
+  color: #004ac6 !important;
+}
+
+.sidebar-article-card.active-card-indicator .sidebar-article-title {
+  color: #191c1e !important;
 }
 
 /* 15. Accessibility — focus ring */
@@ -1118,4 +1154,24 @@ h6 {
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+/* ============================================================
+   39. Mockup design utilities (.material-symbols-outlined, etc.)
+   ============================================================ */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+.technical-card {
+  border: 1px solid #e2e8f0;
+  background: white;
+  transition: all 0.2s ease-in-out;
+}
+.technical-card:hover {
+  background: #f1f5f9;
+}
+.glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
 }

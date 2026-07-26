@@ -17,7 +17,7 @@
 
   var lang = document.documentElement.lang; // "en" or "zh-tw"
 
-  // ── localStorage key for article index (language-switch context preservation) ──
+  // ── localStorage key for article index ──
   var dateMatch  = window.location.pathname.match(/\/posts\/(\d{4}-\d{2}-\d{2})\//);
   var storageKey = 'articleIdx_' + (dateMatch ? dateMatch[1] : 'default');
 
@@ -40,39 +40,30 @@
       .replace(/"/g, '&quot;');
   }
 
-  var STAR_FILLED = '<svg class="rating-star rating-star--filled" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>';
-  var STAR_EMPTY  = '<svg class="rating-star rating-star--empty"  viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 9.74l-7.19-.62L12 2.5 9.19 9.13 2 9.74l5.46 4.73-1.64 7.03L12 17.77l6.18 3.73-1.63-7.03L22 9.74zM12 15.9l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.8l1.71 4.64 4.38.38-3.32 2.88 1 4.28L12 15.9z"/></svg>';
-  var EXTERNAL_ICON = '<svg class="source-link-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
-
   function buildStars(rating) {
     var r = parseInt(rating, 10) || 3;
-    var label = lang === 'zh-tw'
-      ? '5 顆星中的 ' + r + ' 顆'
-      : r + ' out of 5 stars';
-    var html = '<div class="rating-stars" aria-label="' + esc(label) + '">';
+    var html = '<div class="flex items-center gap-xs">';
     for (var i = 1; i <= 5; i++) {
-      html += i <= r ? STAR_FILLED : STAR_EMPTY;
+      if (i <= r) {
+        html += '<span class="material-symbols-outlined text-primary" style="font-variation-settings: \'FILL\' 1;">star</span>';
+      } else {
+        html += '<span class="material-symbols-outlined text-outline-variant">star</span>';
+      }
     }
+    html += '<span class="font-label-md text-label-md ml-xs text-on-surface">' + r.toFixed(1) + '</span>';
     return html + '</div>';
-  }
-
-  function buildTagPills(tags, cssClass, style) {
-    if (!Array.isArray(tags) || tags.length === 0) return '';
-    return tags.map(function (t) {
-      return '<span class="tag-pill ' + cssClass + '"' + (style ? ' style="' + style + '"' : '') + '>' + esc(t) + '</span>';
-    }).join('');
   }
 
   function buildInsightsList(items) {
     if (!Array.isArray(items) || items.length === 0) return '';
-    return '<ul class="insights-list">' +
+    return '<ul class="list-disc list-inside text-body-md space-y-1">' +
       items.map(function (item) {
-        return '<li class="insights-item">' + esc(item) + '</li>';
+        return '<li>' + esc(item) + '</li>';
       }).join('') +
     '</ul>';
   }
 
-  /* ── 3. Filter sidebar articles (Story 2.6) ─────────── */
+  /* ── 3. Filter sidebar articles ──────────────────────── */
   function filterArticles() {
     var query = activeSearchQuery.toLowerCase().trim();
     var tag   = activeTagFilter.toLowerCase().trim();
@@ -103,76 +94,109 @@
   function renderArticle(article) {
     var isTw = lang === 'zh-tw';
 
-    // Labels
-    var labelProblem   = isTw ? '問題 / 背景' : 'Problem / Why';
-    var labelSolution  = isTw ? '解法 / 方法' : 'Solution / How';
-    var labelInsights  = isTw ? '洞察與取捨'  : 'Insights & Trade-offs';
-    var labelPros      = isTw ? '✓ 優點'      : '✓ Strengths';
-    var labelCons      = isTw ? '⚠ 取捨'      : '⚠ Trade-offs';
-    var labelTags      = isTw ? '標籤與行動'  : 'Tags & Action';
-    var labelLink      = isTw ? '原文連結'    : 'Original Link';
-    var srcAriaLabel   = isTw
-      ? '原文連結：' + (article.title || '')
-      : 'Original Link: ' + (article.title || '');
+    var labelProblem  = isTw ? '痛點與背景 (Problem / Why)' : 'Problem / Why';
+    var labelSolution = isTw ? '解法與核心機制 (Solution / How)' : 'Solution / How';
+    var labelInsights = isTw ? '關鍵數據或權衡 (Insights & Trade-offs)' : 'Insights & Trade-offs';
+    var labelPros     = isTw ? '優點 (Pros)' : 'Pros';
+    var labelCons     = isTw ? '缺點 (Cons)' : 'Cons';
+    var labelTags     = isTw ? '標籤與實用價值 (Tags & Action)' : 'Tags & Action';
+    var labelLink     = isTw ? '原文連結' : 'Original Link';
+    var labelElements = isTw ? '📋 技術摘要的 5 大核心要素' : '📋 5 Core Elements of Technical Summary';
+    var labelReadTime = isTw ? '閱讀時間：約 4 分鐘' : 'Read time: ~4 mins';
+    var labelTldr     = isTw ? '1. 一句話結論 (TL;DR)' : '1. TL;DR';
 
     var pros = (article.insights_tradeoffs || {}).pros || [];
     var cons = (article.insights_tradeoffs || {}).cons || [];
 
     var html = '';
 
-    // Article header
-    html += '<header class="article-panel-header">';
-    html += '<h1 class="article-panel-title text-headline-lg">' + esc(article.title) + '</h1>';
+    // Summary Header
+    html += '<div class="p-lg border-b border-outline-variant bg-surface-bright">';
+    html += '<div class="flex items-center gap-sm mb-md">';
+    html += '<span class="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Deep Dive</span>';
+    html += '<span class="text-outline text-label-sm">' + esc(labelReadTime) + '</span>';
+    html += '</div>';
+    html += '<h1 class="font-headline-xl text-headline-xl mb-md">' + esc(article.title) + '</h1>';
+    html += '<div class="flex items-center gap-md">';
     html += buildStars(article.rating);
-    html += '</header>';
-
-    // TL;DR
-    html += '<div class="tldr-box">';
-    html += '<span class="tldr-label">TL;DR</span>';
-    html += '<p class="tldr-text">' + esc(article.tldr) + '</p>';
+    html += '<div class="h-4 w-px bg-outline-variant"></div>';
+    html += '<span class="font-label-md text-label-md text-on-surface-variant">';
+    html += isTw ? '發布日期：2024年10月' : 'Published: Oct 2024';
+    html += '</span>';
+    html += '</div>';
     html += '</div>';
 
-    // Problem / Why
-    html += '<div class="summary-section">';
-    html += '<span class="summary-section-label">' + esc(labelProblem) + '</span>';
-    html += '<p class="summary-section-body">' + esc(article.problem_why) + '</p>';
+    // 5 Core Elements Detail
+    html += '<div class="p-lg space-y-lg">';
+    html += '<div class="flex items-center gap-sm text-primary">';
+    html += '<span class="material-symbols-outlined">analytics</span>';
+    html += '<h3 class="font-headline-md text-headline-md font-bold">' + esc(labelElements) + '</h3>';
     html += '</div>';
 
-    // Solution / How
-    html += '<div class="summary-section">';
-    html += '<span class="summary-section-label">' + esc(labelSolution) + '</span>';
-    html += '<p class="summary-section-body">' + esc(article.solution_how) + '</p>';
+    // 1. TL;DR
+    html += '<div class="p-md rounded-lg bg-surface-container-low border-l-4 border-primary">';
+    html += '<div class="font-label-md text-label-md text-primary mb-xs">' + esc(labelTldr) + '</div>';
+    html += '<p class="font-body-lg text-body-lg font-semibold">' + esc(article.tldr) + '</p>';
     html += '</div>';
 
-    // Insights & Trade-offs
-    html += '<div class="insights-section">';
-    html += '<span class="insights-section-label">' + esc(labelInsights) + '</span>';
-    html += '<div class="insights-grid">';
-    html += '<div class="insights-col insights-col--pros">';
-    html += '<span class="insights-col-header">' + esc(labelPros) + '</span>';
-    html += buildInsightsList(pros);
+    // 2. Problem & 3. Solution
+    html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">';
+    html += '<div class="space-y-sm">';
+    html += '<div class="font-label-md text-label-md text-outline">2. ' + esc(labelProblem) + '</div>';
+    html += '<div class="technical-card p-md rounded-lg border-dashed">';
+    html += '<p class="font-body-md text-body-md text-on-surface-variant">' + esc(article.problem_why) + '</p>';
     html += '</div>';
-    html += '<div class="insights-col insights-col--cons">';
-    html += '<span class="insights-col-header">' + esc(labelCons) + '</span>';
-    html += buildInsightsList(cons);
     html += '</div>';
-    html += '</div></div>';
+    html += '<div class="space-y-sm">';
+    html += '<div class="font-label-md text-label-md text-outline">3. ' + esc(labelSolution) + '</div>';
+    html += '<div class="technical-card p-md rounded-lg border-dashed">';
+    html += '<p class="font-body-md text-body-md text-on-surface-variant">' + esc(article.solution_how) + '</p>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
 
-    // Tags & Action
-    html += '<div class="tags-action-section">';
-    html += '<span class="tags-action-label">' + esc(labelTags) + '</span>';
-    html += '<div class="tags-action-list">';
-    html += buildTagPills(article.tags_action, 'tag-pill--primary', '');
-    html += '</div></div>';
+    // 4. Insights & Trade-offs
+    html += '<div class="space-y-sm">';
+    html += '<div class="font-label-md text-label-md text-outline">4. ' + esc(labelInsights) + '</div>';
+    html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-md">';
+    html += '<div class="p-md rounded-lg bg-green-50/50 border border-green-100">';
+    html += '<div class="flex items-center gap-xs text-green-700 font-bold mb-xs text-label-md">';
+    html += '<span class="material-symbols-outlined text-[16px]">add_circle</span> ' + esc(labelPros);
+    html += '</div>';
+    html += '<div class="text-green-800">' + buildInsightsList(pros) + '</div>';
+    html += '</div>';
+    html += '<div class="p-md rounded-lg bg-red-50/50 border border-red-100">';
+    html += '<div class="flex items-center gap-xs text-red-700 font-bold mb-xs text-label-md">';
+    html += '<span class="material-symbols-outlined text-[16px]">remove_circle</span> ' + esc(labelCons);
+    html += '</div>';
+    html += '<div class="text-red-800">' + buildInsightsList(cons) + '</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
 
-    // Source link (only if url is a safe http/https URL)
-    if (article.url && /^https?:\/\//i.test(article.url)) {
-      html += '<div class="source-link-row">';
-      html += '<a class="source-link" href="' + esc(article.url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(srcAriaLabel) + '">';
-      html += EXTERNAL_ICON;
-      html += esc(labelLink);
-      html += '</a></div>';
+    // 5. Tags & Action
+    html += '<div class="pt-md border-t border-outline-variant flex flex-col md:flex-row justify-between items-start md:items-center gap-md">';
+    html += '<div class="space-y-sm">';
+    html += '<div class="font-label-md text-label-md text-outline">5. ' + esc(labelTags) + '</div>';
+    html += '<div class="flex flex-wrap gap-sm">';
+    if (Array.isArray(article.tags_action)) {
+      article.tags_action.forEach(function (tag) {
+        html += '<span class="px-3 py-1 rounded-full bg-surface-container-high text-primary font-bold text-label-sm border border-outline-variant">#' + esc(tag) + '</span>';
+      });
     }
+    html += '</div>';
+    html += '</div>';
+
+    if (article.url && /^https?:\/\//i.test(article.url)) {
+      html += '<div class="flex gap-sm">';
+      html += '<a href="' + esc(article.url) + '" target="_blank" rel="noopener noreferrer" class="px-lg py-2 bg-primary text-white font-bold rounded-lg hover:bg-surface-tint transition-colors flex items-center gap-sm">';
+      html += '<span class="material-symbols-outlined text-[18px]">share</span>' + esc(labelLink);
+      html += '</a>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '</div>';
 
     detailPanel.innerHTML = html;
   }
@@ -183,13 +207,14 @@
       card.classList.remove('active-card-indicator');
       card.setAttribute('aria-selected', 'false');
     });
+
     var target = document.querySelector('[data-article-index="' + idx + '"]');
     if (target) {
       target.classList.add('active-card-indicator');
       target.setAttribute('aria-selected', 'true');
     }
     if (articles[idx]) renderArticle(articles[idx]);
-    try { localStorage.setItem(storageKey, idx); } catch (e) {} // Story 2.6: persist for lang-switch
+    try { localStorage.setItem(storageKey, idx); } catch (e) {}
   }
 
   /* ── 6. Attach event listeners ───────────────────────── */
@@ -234,18 +259,38 @@
     pill.style.cursor = 'pointer';
     function toggleTag() {
       var tag = (pill.getAttribute('data-filter-tag') || '').toLowerCase();
-      if (activeTagFilter === tag) {
-        // Deselect current tag filter
+      if (!tag) {
         activeTagFilter = '';
         tagPills.forEach(function (p) {
-          p.classList.remove('tag-pill--filter-active');
-          p.setAttribute('aria-pressed', 'false');
+          var isAll = !(p.getAttribute('data-filter-tag') || '');
+          p.classList.toggle('tag-pill--filter-active', isAll);
+          p.classList.toggle('bg-primary', isAll);
+          p.classList.toggle('text-white', isAll);
+          p.classList.toggle('bg-surface-container-high', !isAll);
+          p.classList.toggle('text-on-surface-variant', !isAll);
+          p.setAttribute('aria-pressed', isAll ? 'true' : 'false');
+        });
+      } else if (activeTagFilter === tag) {
+        activeTagFilter = '';
+        tagPills.forEach(function (p) {
+          var isAll = !(p.getAttribute('data-filter-tag') || '');
+          p.classList.toggle('tag-pill--filter-active', isAll);
+          p.classList.toggle('bg-primary', isAll);
+          p.classList.toggle('text-white', isAll);
+          p.classList.toggle('bg-surface-container-high', !isAll);
+          p.classList.toggle('text-on-surface-variant', !isAll);
+          p.setAttribute('aria-pressed', isAll ? 'true' : 'false');
         });
       } else {
         activeTagFilter = tag;
         tagPills.forEach(function (p) {
-          var active = (p.getAttribute('data-filter-tag') || '').toLowerCase() === tag;
+          var pTag = (p.getAttribute('data-filter-tag') || '').toLowerCase();
+          var active = pTag === tag;
           p.classList.toggle('tag-pill--filter-active', active);
+          p.classList.toggle('bg-primary', active);
+          p.classList.toggle('text-white', active);
+          p.classList.toggle('bg-surface-container-high', !active);
+          p.classList.toggle('text-on-surface-variant', !active);
           p.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
       }
@@ -264,8 +309,13 @@
       activeTagFilter   = '';
       if (searchInput) searchInput.value = '';
       tagPills.forEach(function (p) {
-        p.classList.remove('tag-pill--filter-active');
-        p.setAttribute('aria-pressed', 'false');
+        var isAll = !(p.getAttribute('data-filter-tag') || '');
+        p.classList.toggle('tag-pill--filter-active', isAll);
+        p.classList.toggle('bg-primary', isAll);
+        p.classList.toggle('text-white', isAll);
+        p.classList.toggle('bg-surface-container-high', !isAll);
+        p.classList.toggle('text-on-surface-variant', !isAll);
+        p.setAttribute('aria-pressed', isAll ? 'true' : 'false');
       });
       filterArticles();
     });
