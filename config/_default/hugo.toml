@@ -2,6 +2,7 @@ baseURL = "https://YOUR_USERNAME.github.io/daily-ai-news/"
 defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = true
 hasCJKLanguage = true
+relativeURLs = true
 
 [languages]
   [languages.en]
