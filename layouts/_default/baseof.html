@@ -126,18 +126,16 @@
     <div class="flex items-center gap-lg">
       {{ block "lang-switcher" . }}
       {{- $currentLang := .Site.Language.Lang -}}
-      {{- $enURL := replace .RelPermalink "/zh-tw/" "/en/" -}}
-      {{- $zhURL := replace .RelPermalink "/en/" "/zh-tw/" -}}
       <div class="font-label-md text-label-md text-on-surface-variant">
-        <a href="{{ $enURL }}"
-           class="{{ if eq $currentLang "en" }}text-primary font-bold{{ else }}hover:text-primary transition-colors{{ end }}"
-           hreflang="en"
-           aria-label="{{ if eq $currentLang "en" }}English (current language){{ else }}Switch to English{{ end }}">English</a>
-        <span class="mx-1">/</span>
-        <a href="{{ $zhURL }}"
-           class="{{ if eq $currentLang "zh-tw" }}text-primary font-bold{{ else }}hover:text-primary transition-colors{{ end }}"
-           hreflang="zh-TW"
-           aria-label="{{ if eq $currentLang "zh-tw" }}繁體中文（目前語言）{{ else }}切換至繁體中文{{ end }}">繁體中文</a>
+        {{- range $i, $tr := .AllTranslations -}}
+          {{- if $i -}}<span class="mx-1">/</span>{{- end -}}
+          <a href="{{ $tr.RelPermalink }}"
+             class="{{ if eq $tr.Language.Lang $currentLang }}text-primary font-bold{{ else }}hover:text-primary transition-colors{{ end }}"
+             hreflang="{{ if eq $tr.Language.Lang "zh-tw" }}zh-TW{{ else }}en{{ end }}"
+             aria-label="{{ if eq $tr.Language.Lang $currentLang }}{{ $tr.Language.LanguageName }} (current language){{ else }}Switch to {{ $tr.Language.LanguageName }}{{ end }}">
+            {{- if eq $tr.Language.Lang "en" -}}English{{- else -}}繁體中文{{- end -}}
+          </a>
+        {{- end -}}
       </div>
       {{ end }}
     </div>
