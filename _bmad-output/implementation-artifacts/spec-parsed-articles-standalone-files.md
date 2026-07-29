@@ -3,7 +3,6 @@ title: Save individual parsed articles to data/parsed/{url_hash}.json
 type: feature
 created: 2026-07-29
 status: 'done'
-baseline_commit: 'a31ec4fdcea5e205bef20c444a4919b7355fc4c4'
 review_loop_iteration: 0
 context: []
 ---
@@ -64,4 +63,17 @@ context: []
 
 - Update unit test assertions to verify `data/parsed/*.json` outputs.
   [`test_pipeline.py:267`](../../tests/test_pipeline.py#L267)
+
+### Review Findings
+
+- [~] [Review][Decision] Stale parsed files survive rerun — resolved: accumulate all-time is intentional; each article keyed by URL hash, different daily summaries tracked by Hugo content, not by directory state.
+- [x] [Review][Patch] No test asserts `data/parsed_articles.json` is absent — "Never" constraint has no test coverage. Code could reintroduce monolith write and most tests would still pass. `tests/test_pipeline.py`
+- [x] [Review][Patch] No test verifies filename equals `get_url_hash(url)` — tests count files and check content but do not assert the file is named `<hash>.json`. `tests/test_pipeline.py`
+- [x] [Review][Patch] Stale comments/test descriptions still mention `parsed_articles.json` — test intent contradicts new contract. `tests/test_pipeline.py`
+- [x] [Review][Patch] `spec-rss-crawler-standalone-files.md` AC still references `data/parsed_articles.json` — spec internally inconsistent with CAP-10. `_bmad-output/implementation-artifacts/spec-rss-crawler-standalone-files.md`
+- [x] [Review][Defer] Non-atomic write — partial batch failure leaves orphan files, no rollback. `src/pipeline.py:657-663` — deferred, pre-existing
+- [x] [Review][Defer] Swallowed write failures — pipeline exits success when file write errors occur. `src/pipeline.py:665-666` — deferred, pre-existing
+- [x] [Review][Defer] Old `data/parsed_articles.json` may persist on existing deployments after migration. `src/pipeline.py` — deferred, pre-existing
+- [x] [Review][Defer] Missing `item['url']` key aborts full batch on malformed input. `src/pipeline.py:659` — deferred, pre-existing
+- [x] [Review][Defer] MD5 hash collision would silently overwrite an article's parsed file. `src/pipeline.py:659-660` — deferred, pre-existing
 

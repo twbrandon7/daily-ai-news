@@ -57,7 +57,7 @@ context: []
 - Given a list of RSS feed URLs in `data/blogs.yaml`, when running the crawl stage, then the new article URLs are extracted, crawled, and saved as separate `{url_hash}.json` files under `data/crawled/`.
 - Given crawled articles in `data/crawled/`, when running the summarize stage, then each article is summarized and saved as a separate `{url_hash}.json` file under `data/summarized/`.
 - Given summarized articles in `data/crawled/`, when running the translate stage, then each summary is translated and saved as a separate `{url_hash}.json` file under `data/translated/`.
-- Given translated summaries in `data/translated/`, when running the publish stage, then a daily post is generated for the English and Chinese versions, and the articles are marked as published in `data/fetched_posts.json` and `data/parsed_articles.json`.
+- Given translated summaries in `data/translated/`, when running the publish stage, then a daily post is generated for the English and Chinese versions, and the articles are marked as published in `data/fetched_posts.json` with individual parsed files written to `data/parsed/{url_hash}.json`.
 
 ## Design Notes
 

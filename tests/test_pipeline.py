@@ -274,6 +274,12 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
     assert parsed_article["title"] == "New Title"
     assert parsed_article["summary"] == mock_summary
     assert parsed_article["summary_zh_tw"] == mock_translation
+    # P1: verify monolith file is never created
+    assert not (tmp_path / "data/parsed_articles.json").exists()
+    # P2: verify filename matches url hash
+    from src.pipeline import get_url_hash
+    expected_filename = get_url_hash("https://new-url.com") + ".json"
+    assert parsed_files[0].name == expected_filename
 
 def test_normalize_url():
     from src.pipeline import normalize_url
@@ -378,7 +384,7 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
 async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeypatch):
     """
     AC5: Given 3 articles where 1 summarization fails, when pipeline runs,
-    then parsed_articles.json contains exactly 2 articles (each with summary)
+    then data/parsed/ contains exactly 2 article files (each with summary)
     and the failing article is recorded in failures.
     """
     import os, json, yaml
@@ -451,7 +457,7 @@ async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeyp
 async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypatch):
     """
     Given 3 articles where 1 translation fails, when pipeline runs,
-    then parsed_articles.json contains exactly 2 articles (each with summary and summary_zh_tw)
+    then data/parsed/ contains exactly 2 article files (each with summary and summary_zh_tw)
     and the failing article is recorded in failures.
     """
     import os, json, yaml
@@ -521,7 +527,7 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
 async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
     """
     Test pipeline interaction with write_daily_posts.
-    If write_daily_posts fails, main exits with 1, and no parsed_articles.json is written.
+    If write_daily_posts fails, main exits with 1, and no files are written to data/parsed/.
     """
     import os, json, yaml
     from src import pipeline
@@ -583,6 +589,8 @@ async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
     await pipeline.main()
     assert (tmp_path / "data/parsed").exists()
     assert len(list((tmp_path / "data/parsed").glob("*.json"))) == 1
+    # P1: verify monolith file is never created
+    assert not (tmp_path / "data/parsed_articles.json").exists()
 
 
 @pytest.mark.asyncio
@@ -679,6 +687,9 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
     assert parsed_path.exists()
     parsed = json.loads(parsed_path.read_text())
     assert parsed["url"] == "https://new-url.com"
+    # P1: verify monolith file is never created
+    assert not (tmp_path / "data/parsed_articles.json").exists()
+    # P2: filename is already verified via url_hash in the path above
 
     # Verify that crawled URL was added to fetched_posts.json
     updated_fetched = json.loads(fetched_posts.read_text())

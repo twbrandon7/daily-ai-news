@@ -33,3 +33,11 @@
 ## Deferred from: code review of 2-5-interactive-javascript-switcher-integration (2026-07-12)
 
 - `aria-selected` on `role="listitem"` elements — ARIA spec violation; `aria-selected` is only valid on option/row/tab/treeitem/gridcell roles. Requires sidebar widget to be refactored as `role="listbox"` with `role="option"` item cards. Architectural change outside story 2-5 scope; defer to a dedicated accessibility hardening story.
+
+## Deferred from: code review of spec-parsed-articles-standalone-files.md (2026-07-29)
+
+- Non-atomic write — partial batch failure leaves orphan parsed files with no rollback. `src/pipeline.py:657-663`. Pre-existing error handling pattern.
+- Swallowed write failures — `run_publish()` catches file I/O exceptions and logs them, but continues to exit success. `src/pipeline.py:665-666`. Pre-existing pattern.
+- Old `data/parsed_articles.json` may persist on existing deployments after migration — pipeline never deletes the legacy file. Pre-existing migration concern.
+- Missing `item['url']` key aborts full batch — `KeyError` on malformed translated payload propagates to outer except and stops the loop. `src/pipeline.py:659`. Pre-existing input validation gap.
+- MD5 hash collision would silently overwrite an article's parsed file. Theoretical risk for MD5, acceptable for this use case. `src/pipeline.py:659-660`.
