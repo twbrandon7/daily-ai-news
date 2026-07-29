@@ -56,10 +56,25 @@ def _log_translate_error(url: str, error_message: str) -> None:
 def _contains_term(term: str, text: str) -> bool:
     """Check if term (or common plural/singular variant) exists as a whole word in text."""
     if term.lower() == "embeddings":
-        pattern = r"\bembedding[s]?\b"
+        matches = list(re.finditer(r"\bembedding[s]?\b", text, flags=re.ASCII | re.IGNORECASE))
+        if not matches:
+            return False
+        for m in matches:
+            word = m.group(0)
+            if word.lower() == "embeddings":
+                return True
+            prefix = text[:m.start()]
+            suffix = text[m.end():]
+            is_verb_prefix = bool(re.search(r"\b(is|are|was|were|be|been|am|by|for)\s+$", prefix, flags=re.IGNORECASE))
+            is_verb_suffix = bool(
+                re.search(r"^\s+([A-Za-z0-9_-]+\s+){0,4}(into|across|within|onto)\b", suffix, flags=re.IGNORECASE)
+            )
+            if not (is_verb_prefix or is_verb_suffix):
+                return True
+        return False
     else:
         pattern = rf"\b{re.escape(term)}[s]?\b"
-    return bool(re.search(pattern, text, flags=re.ASCII | re.IGNORECASE))
+        return bool(re.search(pattern, text, flags=re.ASCII | re.IGNORECASE))
 
 def _validate_translation_constraints(data: dict, original_summary: dict) -> None:
     """

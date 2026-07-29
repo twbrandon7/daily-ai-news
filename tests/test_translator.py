@@ -379,4 +379,19 @@ async def test_translate_summary_refinement_step():
     assert MockAgent.call_args_list[1].kwargs["instruction"] == REFINE_PROMPT
 
 
+def test_contains_term_embeddings_verb_vs_noun():
+    """Verify that _contains_term distinguishes verb 'embedding' from technical noun 'embeddings'/'embedding'."""
+    from src.translator import _contains_term
+
+    # Verb usages should return False for technical term 'embeddings'
+    assert not _contains_term("embeddings", "Cognizant is embedding Claude across its internal business")
+    assert not _contains_term("embeddings", "By embedding security controls in the pipeline")
+
+    # Noun usages should return True for technical term 'embeddings'
+    assert _contains_term("embeddings", "How checkpoint embeddings work")
+    assert _contains_term("embeddings", "Using dense text embedding for RAG")
+    assert _contains_term("embeddings", "High quality vector embeddings")
+
+
+
 
