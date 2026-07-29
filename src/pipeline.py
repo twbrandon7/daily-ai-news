@@ -370,7 +370,7 @@ async def crawl_blog(crawler, url, run_config):
         log_error(url, error_msg)
         return url, None, error_msg
 
-PARSED_ARTICLES_PATH = "data/parsed_articles.json"
+PARSED_DIR = "data/parsed"
 DEDUP_PATH = "data/fetched_posts.json"
 BLOGS_CONFIG_PATH = "data/blogs.yaml"
 
@@ -632,10 +632,7 @@ async def run_publish():
 
     if not articles:
         print("No articles to publish.")
-        # Ensure we write empty parsed_articles.json
-        os.makedirs("data", exist_ok=True)
-        with open(PARSED_ARTICLES_PATH, "w") as f:
-            json.dump([], f, indent=2)
+        os.makedirs(PARSED_DIR, exist_ok=True)
         return
 
     print(f"Starting publishing for {len(articles)} articles...")
@@ -657,12 +654,14 @@ async def run_publish():
     dedup_store = load_deduplication_store(DEDUP_PATH)
     
     try:
-        # Save parsed articles to data/parsed_articles.json
-        with open(PARSED_ARTICLES_PATH, "w") as f:
-            json.dump(articles, f, indent=2)
-        print(f"Successfully saved {len(articles)} articles to {PARSED_ARTICLES_PATH}")
+        os.makedirs(PARSED_DIR, exist_ok=True)
         for item in articles:
+            url_hash = get_url_hash(item['url'])
+            parsed_file_path = os.path.join(PARSED_DIR, f"{url_hash}.json")
+            with open(parsed_file_path, "w", encoding="utf-8") as f:
+                json.dump(item, f, indent=2)
             dedup_store[item['url']] = "fetched"
+        print(f"Successfully saved {len(articles)} articles to standalone files under {PARSED_DIR}/")
     except Exception as e:
         print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
     finally:

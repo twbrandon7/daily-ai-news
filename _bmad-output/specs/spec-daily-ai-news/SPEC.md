@@ -46,6 +46,9 @@ Technical AI practitioners (engineers and researchers) need a clean, distraction
 - **CAP-9**
   - **intent:** System commits newly generated files and updated deduplication registry to GitHub repository.
   - **success:** Git commits are successfully pushed to the repository using conventional commits syntax (`feat: add daily summaries for YYYY-MM-DD`).
+- **CAP-10**
+  - **intent:** System saves individual parsed article JSON files into a dedicated directory during the publishing stage.
+  - **success:** Each published article is written to `data/parsed/{url_hash}.json` and the monolithic `data/parsed_articles.json` file is omitted.
 
 ## Constraints
 

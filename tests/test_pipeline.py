@@ -264,15 +264,16 @@ async def test_pipeline_deduplication_integration(tmp_path, monkeypatch, capsys)
         }
     }
     
-    # Verify parsed_articles.json has only the new article
-    parsed_articles_path = tmp_path / "data/parsed_articles.json"
-    assert parsed_articles_path.exists()
-    parsed_articles = json.loads(parsed_articles_path.read_text())
-    assert len(parsed_articles) == 1
-    assert parsed_articles[0]["url"] == "https://new-url.com"
-    assert parsed_articles[0]["title"] == "New Title"
-    assert parsed_articles[0]["summary"] == mock_summary
-    assert parsed_articles[0]["summary_zh_tw"] == mock_translation
+    # Verify standalone parsed file under data/parsed/ exists and has correct article data
+    parsed_dir = tmp_path / "data/parsed"
+    assert parsed_dir.exists()
+    parsed_files = list(parsed_dir.glob("*.json"))
+    assert len(parsed_files) == 1
+    parsed_article = json.loads(parsed_files[0].read_text())
+    assert parsed_article["url"] == "https://new-url.com"
+    assert parsed_article["title"] == "New Title"
+    assert parsed_article["summary"] == mock_summary
+    assert parsed_article["summary_zh_tw"] == mock_translation
 
 def test_normalize_url():
     from src.pipeline import normalize_url
@@ -354,11 +355,11 @@ async def test_pipeline_deduplication_failure_does_not_save_dedup(tmp_path, monk
     monkeypatch.setattr(pipeline, "translate_summary", AsyncMock(return_value=mock_translation))
     monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
     
-    # Force a failure during saving of parsed_articles.json by mocking open
+    # Force a failure during saving of parsed articles by mocking open
     import builtins
     original_open = builtins.open
     def mock_open(file, mode='r', *args, **kwargs):
-        if "parsed_articles.json" in str(file) and 'w' in mode:
+        if "data/parsed" in str(file) and 'w' in mode:
             raise PermissionError("Simulated write error")
         return original_open(file, mode, *args, **kwargs)
     monkeypatch.setattr(builtins, "open", mock_open)
@@ -436,9 +437,11 @@ async def test_pipeline_summarization_failure_excludes_article(tmp_path, monkeyp
  
     await pipeline.main()
 
-    parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
-    assert len(parsed) == 2
-    for article in parsed:
+    parsed_dir = tmp_path / "data/parsed"
+    parsed_files = list(parsed_dir.glob("*.json"))
+    assert len(parsed_files) == 2
+    for p_file in parsed_files:
+        article = json.loads(p_file.read_text())
         assert "summary" in article
         assert "summary_zh_tw" in article
         assert "fail" not in article["url"]
@@ -504,9 +507,11 @@ async def test_pipeline_translation_failure_excludes_article(tmp_path, monkeypat
  
     await pipeline.main()
 
-    parsed = json.loads((tmp_path / "data/parsed_articles.json").read_text())
-    assert len(parsed) == 2
-    for article in parsed:
+    parsed_dir = tmp_path / "data/parsed"
+    parsed_files = list(parsed_dir.glob("*.json"))
+    assert len(parsed_files) == 2
+    for p_file in parsed_files:
+        article = json.loads(p_file.read_text())
         assert "summary" in article
         assert "summary_zh_tw" in article
         assert "fail" not in article["url"]
@@ -564,19 +569,20 @@ async def test_pipeline_publishing_integration(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as excinfo:
         await pipeline.main()
     assert excinfo.value.code == 1
-    assert not (tmp_path / "data/parsed_articles.json").exists()
+    assert not (tmp_path / "data/parsed").exists() or len(list((tmp_path / "data/parsed").glob("*.json"))) == 0
 
     # Scenario 2: write_daily_posts returns False
     monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=False))
     with pytest.raises(SystemExit) as excinfo:
         await pipeline.main()
     assert excinfo.value.code == 1
-    assert not (tmp_path / "data/parsed_articles.json").exists()
+    assert not (tmp_path / "data/parsed").exists() or len(list((tmp_path / "data/parsed").glob("*.json"))) == 0
 
     # Scenario 3: write_daily_posts succeeds
     monkeypatch.setattr(pipeline, "write_daily_posts", AsyncMock(return_value=True))
     await pipeline.main()
-    assert (tmp_path / "data/parsed_articles.json").exists()
+    assert (tmp_path / "data/parsed").exists()
+    assert len(list((tmp_path / "data/parsed").glob("*.json"))) == 1
 
 
 @pytest.mark.asyncio
@@ -669,11 +675,10 @@ async def test_pipeline_stages_individually(tmp_path, monkeypatch):
 
     # Run publish stage
     await pipeline.main(["publish"])
-    parsed_path = tmp_path / "data/parsed_articles.json"
+    parsed_path = tmp_path / f"data/parsed/{url_hash}.json"
     assert parsed_path.exists()
     parsed = json.loads(parsed_path.read_text())
-    assert len(parsed) == 1
-    assert parsed[0]["url"] == "https://new-url.com"
+    assert parsed["url"] == "https://new-url.com"
 
     # Verify that crawled URL was added to fetched_posts.json
     updated_fetched = json.loads(fetched_posts.read_text())
