@@ -49,6 +49,9 @@ Technical AI practitioners (engineers and researchers) need a clean, distraction
 - **CAP-10**
   - **intent:** System saves individual parsed article JSON files into a dedicated directory during the publishing stage.
   - **success:** Each published article is written to `data/parsed/{url_hash}.json` and the monolithic `data/parsed_articles.json` file is omitted.
+- **CAP-11**
+  - **intent:** System tracks processed article hashes per pipeline run in a dedicated registry and ensures each daily summary page contains only summaries from its specific run.
+  - **success:** `data/runs.json` records articles and publication status per run date (`YYYY-MM-DD`), and daily posts contain only the articles for that run while preserving all historical data files.
 
 ## Constraints
 
@@ -59,6 +62,8 @@ Technical AI practitioners (engineers and researchers) need a clean, distraction
 - **C-5:** Translation must leave targeted technical terms (prompt, fine-tuning, RAG, agent, pipeline, embeddings, token, checkpoint) in English.
 - **C-6:** Daily article data must be structured as YAML frontmatter arrays in `content/en/posts/YYYY-MM-DD.md` and `content/zh-tw/posts/YYYY-MM-DD.md`.
 - **C-7:** Individual blog crawl or summarization failures must be logged but must not abort the overall pipeline run.
+- **C-8:** All intermediate data files in `data/crawled/`, `data/summarized/`, `data/translated/`, and `data/parsed/` must be preserved indefinitely.
+
 
 ## Non-goals
 

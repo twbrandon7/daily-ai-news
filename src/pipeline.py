@@ -373,6 +373,63 @@ async def crawl_blog(crawler, url, run_config):
 PARSED_DIR = "data/parsed"
 DEDUP_PATH = "data/fetched_posts.json"
 BLOGS_CONFIG_PATH = "data/blogs.yaml"
+RUNS_PATH = "data/runs.json"
+
+def load_runs_registry(file_path: str = RUNS_PATH) -> dict:
+    """Load runs registry from JSON file, returning a dict structured as {"runs": {}}."""
+    if not os.path.exists(file_path):
+        return {"runs": {}}
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and "runs" in data and isinstance(data["runs"], dict):
+            return data
+    except Exception as e:
+        print(f"Warning: Failed to load runs registry from {file_path}: {e}", file=sys.stderr)
+    return {"runs": {}}
+
+def save_runs_registry(file_path: str, store: dict):
+    """Save runs registry to JSON file under {"runs": ...} atomically."""
+    temp_path = None
+    try:
+        dir_name = os.path.dirname(file_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        temp_path = file_path + ".tmp"
+        sorted_runs = {}
+        for k in sorted(store.get("runs", {}).keys()):
+            sorted_runs[k] = store["runs"][k]
+        payload = {"runs": sorted_runs}
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(temp_path, file_path)
+    except Exception as e:
+        print(f"Warning: Failed to save runs registry to {file_path}: {e}", file=sys.stderr)
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+def register_run_articles(run_date: str, url_hashes: list[str], runs_path: str = RUNS_PATH):
+    """Register a list of article url_hashes under runs[run_date]["articles"] with published: False."""
+    if not url_hashes:
+        return
+    store = load_runs_registry(runs_path)
+    runs = store.setdefault("runs", {})
+    if run_date not in runs:
+        runs[run_date] = {"articles": [], "published": False}
+    elif not isinstance(runs[run_date], dict):
+        runs[run_date] = {"articles": [], "published": False}
+
+    current_hashes = list(runs[run_date].get("articles", []))
+    for h in url_hashes:
+        if h not in current_hashes:
+            current_hashes.append(h)
+    runs[run_date]["articles"] = current_hashes
+    if "published" not in runs[run_date]:
+        runs[run_date]["published"] = False
+    save_runs_registry(runs_path, store)
 
 def validate_google_api_key():
     if not (os.environ.get("GOOGLE_API_KEY") or "").strip():
@@ -481,6 +538,11 @@ async def run_crawl():
             print("\nFailed URLs and errors:")
             for url, err in failures:
                 print(f" - {url}: {err}")
+
+        if successes:
+            today_str = datetime.date.today().isoformat()
+            hashes = [get_url_hash(a["url"]) for a in successes]
+            register_run_articles(today_str, hashes)
                 
         return successes
     except Exception as e:
@@ -546,6 +608,11 @@ async def run_summarize():
         print("\nFailed summarizations:")
         for url, err in failures:
             print(f" - {url}: {err}")
+
+    if successes:
+        today_str = datetime.date.today().isoformat()
+        hashes = [get_url_hash(a["url"]) for a in successes]
+        register_run_articles(today_str, hashes)
             
     return successes
 
@@ -613,59 +680,94 @@ async def run_translate():
         print("\nFailed translations:")
         for url, err in failures:
             print(f" - {url}: {err}")
+
+    if successes:
+        today_str = datetime.date.today().isoformat()
+        hashes = [get_url_hash(a["url"]) for a in successes]
+        register_run_articles(today_str, hashes)
             
     return successes
 
 async def run_publish():
+    runs_store = load_runs_registry(RUNS_PATH)
+    runs = runs_store.get("runs", {})
+    
+    # Backfill if runs is empty but translated files exist
     translated_dir = os.path.join("data", "translated")
-    translated_files = []
-    if os.path.exists(translated_dir):
-        translated_files = [os.path.join(translated_dir, f) for f in os.listdir(translated_dir) if f.endswith(".json")]
-        
-    articles = []
-    for file_path in translated_files:
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                articles.append(json.load(f))
-        except Exception as e:
-            print(f"Error reading {file_path}: {e}", file=sys.stderr)
+    if not runs and os.path.exists(translated_dir):
+        translated_files = [f[:-5] for f in os.listdir(translated_dir) if f.endswith(".json")]
+        if translated_files:
+            today_str = datetime.date.today().isoformat()
+            register_run_articles(today_str, translated_files)
+            runs_store = load_runs_registry(RUNS_PATH)
+            runs = runs_store.get("runs", {})
 
-    if not articles:
-        print("No articles to publish.")
+    unpublished_dates = [
+        d for d, info in runs.items()
+        if isinstance(info, dict) and not info.get("published", False) and info.get("articles")
+    ]
+
+    if not unpublished_dates:
+        print("No unpublished runs to publish.")
         os.makedirs(PARSED_DIR, exist_ok=True)
         return
 
-    print(f"Starting publishing for {len(articles)} articles...")
-    
     # Check for GOOGLE_API_KEY as publishing generates and translates highlights
     validate_google_api_key()
     
-    today_str = datetime.date.today().isoformat()
-    try:
-        pub_success = await write_daily_posts(today_str, articles)
-        if not pub_success:
-            print("Error: Publishing daily posts failed.", file=sys.stderr)
-            sys.exit(1)
-    except Exception as e:
-        print(f"Error: Publishing failed: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # Load dedup store to append new URLs
     dedup_store = load_deduplication_store(DEDUP_PATH)
-    
+    os.makedirs(PARSED_DIR, exist_ok=True)
+
     try:
-        os.makedirs(PARSED_DIR, exist_ok=True)
-        for item in articles:
-            url_hash = get_url_hash(item['url'])
-            parsed_file_path = os.path.join(PARSED_DIR, f"{url_hash}.json")
-            with open(parsed_file_path, "w", encoding="utf-8") as f:
-                json.dump(item, f, indent=2)
-            dedup_store[item['url']] = "fetched"
-        print(f"Successfully saved {len(articles)} articles to standalone files under {PARSED_DIR}/")
-    except Exception as e:
-        print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
+        for run_date in sorted(unpublished_dates):
+            hashes = runs[run_date].get("articles", [])
+            if not hashes:
+                continue
+                
+            articles = []
+            for h in hashes:
+                file_path = os.path.join(translated_dir, f"{h}.json")
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            articles.append(json.load(f))
+                    except Exception as e:
+                        print(f"Error reading {file_path}: {e}", file=sys.stderr)
+                else:
+                    print(f"Warning: Translated file {file_path} for run {run_date} not found.", file=sys.stderr)
+
+            if not articles:
+                print(f"No translated articles found for run date {run_date}. Skipping.")
+                continue
+
+            print(f"Starting publishing for {len(articles)} articles in run date {run_date}...")
+            try:
+                pub_success = await write_daily_posts(run_date, articles)
+                if not pub_success:
+                    print(f"Error: Publishing daily posts failed for run date {run_date}.", file=sys.stderr)
+                    sys.exit(1)
+            except Exception as e:
+                print(f"Error: Publishing failed for run date {run_date}: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            try:
+                for item in articles:
+                    url_hash = get_url_hash(item['url'])
+                    parsed_file_path = os.path.join(PARSED_DIR, f"{url_hash}.json")
+                    with open(parsed_file_path, "w", encoding="utf-8") as f:
+                        json.dump(item, f, indent=2)
+                    dedup_store[item['url']] = "fetched"
+                print(f"Successfully saved {len(articles)} articles to standalone files under {PARSED_DIR}/")
+            except Exception as e:
+                print(f"Error saving parsed articles to file: {e}", file=sys.stderr)
+
+            runs[run_date]["published"] = True
+            save_runs_registry(RUNS_PATH, runs_store)
+            print(f"Successfully published {len(articles)} articles for run date {run_date}.")
     finally:
         save_deduplication_store(DEDUP_PATH, dedup_store)
+
+
 
 async def main(args=None):
     if args is None:

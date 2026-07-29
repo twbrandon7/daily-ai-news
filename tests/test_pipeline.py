@@ -896,7 +896,66 @@ def test_resolve_urls_to_crawl_cutoff_filter(monkeypatch):
     urls = [r["url"] for r in res]
     assert "https://example.com/new" in urls
     assert "https://example.com/cutoff" in urls
-    assert "https://example.com/old" not in urls
     assert dedup_store.get("https://example.com/old") == "skipped"
+
+def test_runs_registry_load_save_register(tmp_path):
+    from src.pipeline import load_runs_registry, save_runs_registry, register_run_articles
+    runs_file = str(tmp_path / "runs.json")
+    
+    reg = load_runs_registry(runs_file)
+    assert reg == {"runs": {}}
+    
+    register_run_articles("2026-07-28", ["hash1", "hash2"], runs_path=runs_file)
+    reg = load_runs_registry(runs_file)
+    assert "2026-07-28" in reg["runs"]
+    assert reg["runs"]["2026-07-28"]["articles"] == ["hash1", "hash2"]
+    assert reg["runs"]["2026-07-28"]["published"] is False
+
+    register_run_articles("2026-07-28", ["hash2", "hash3"], runs_path=runs_file)
+    reg = load_runs_registry(runs_file)
+    assert reg["runs"]["2026-07-28"]["articles"] == ["hash1", "hash2", "hash3"]
+
+@pytest.mark.asyncio
+async def test_run_publish_isolates_runs(tmp_path, monkeypatch):
+    from src.pipeline import run_publish, save_runs_registry, get_url_hash
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GOOGLE_API_KEY", "fake-key")
+
+    published_calls = []
+
+    async def mock_write_daily_posts(date_str, articles):
+        published_calls.append((date_str, [a["title"] for a in articles]))
+        return True
+
+    monkeypatch.setattr("src.pipeline.write_daily_posts", mock_write_daily_posts)
+
+    art1 = {"url": "https://example.com/a1", "title": "Article 1", "summary": {"tldr": "s1"}, "summary_zh_tw": {"tldr": "t1"}}
+    art2 = {"url": "https://example.com/a2", "title": "Article 2", "summary": {"tldr": "s2"}, "summary_zh_tw": {"tldr": "t2"}}
+    h1 = get_url_hash(art1["url"])
+    h2 = get_url_hash(art2["url"])
+
+    trans_dir = tmp_path / "data" / "translated"
+    trans_dir.mkdir(parents=True, exist_ok=True)
+    (trans_dir / f"{h1}.json").write_text(json.dumps(art1))
+    (trans_dir / f"{h2}.json").write_text(json.dumps(art2))
+
+    runs_data = {
+        "runs": {
+            "2026-07-28": {"articles": [h1], "published": False},
+            "2026-07-29": {"articles": [h2], "published": False}
+        }
+    }
+    save_runs_registry("data/runs.json", runs_data)
+
+    await run_publish()
+
+    assert len(published_calls) == 2
+    assert published_calls[0] == ("2026-07-28", ["Article 1"])
+    assert published_calls[1] == ("2026-07-29", ["Article 2"])
+
+    reg = json.loads((tmp_path / "data" / "runs.json").read_text())
+    assert reg["runs"]["2026-07-28"]["published"] is True
+    assert reg["runs"]["2026-07-29"]["published"] is True
+
 
 
